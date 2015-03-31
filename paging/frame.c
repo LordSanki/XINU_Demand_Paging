@@ -9,7 +9,7 @@ fr_map_t frm_tab[NFRAMES + 4];
 #define FREE_FRM_TAIL 1025
 #define MAP_HEAD 1026
 #define MAP_TAIL 1027
-#define Q_EMPTY(HEAD) (frm_tab[frm_tab[(HEAD)].q.next].q.key != 1)
+#define Q_EMPTY(HEAD) (frm_tab[frm_tab[(HEAD)].q.next].q.key == 1)
 #define Q_INVALID(X) ( ((X) < 0) && ((X) >= NFRAMES) )
 
 pt_t* find_page_entry(int pid, int vpno);
