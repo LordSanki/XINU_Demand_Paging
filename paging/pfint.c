@@ -78,12 +78,13 @@ void self_test(int vadd, int pid)
   pd_t *pd;
 
   pd = (pd_t*)pptr->pdbr;
-  if(pd == NULL) goto error;
+  if(pd == NULL) {DBG("pd");goto error;}
 
-  if(pd[pv->pd_offset].pd_pres == 0) goto error;
+  if(pd[pv->pd_offset].pd_pres == 0) {DBG("pd_pres");goto error;}
+
   pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
-  if(pt == NULL) goto error;
-  if(pt[pv->pt_offset].pt_pres == 0) goto error;
+  if(pt == NULL) {DBG("pt");goto error;}
+  if(pt[pv->pt_offset].pt_pres == 0) {DBG("pt_pres");goto error;}
   kprintf( "Page at %x\n", VPN2VAD(pt[pv->pt_offset].pt_base) );
 
   return;
