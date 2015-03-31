@@ -31,8 +31,8 @@ SYSCALL init_frm()
   tail->q.key = 1;
   head->q.key = 1;
 
-  bzero(frm_tab[0], sizeof(fr_map_t));
-  bzero(frm_tab[NFRAMES-1], sizeof(fr_map_t));
+  bzero(&(frm_tab[0]), sizeof(fr_map_t));
+  bzero(&(frm_tab[NFRAMES-1]), sizeof(fr_map_t));
   head->q.next = 0;
   frm_tab[0].q.prev = FREE_FRM_HEAD;
   frm_tab[0].q.next = 1;
@@ -41,7 +41,7 @@ SYSCALL init_frm()
   frm_tab[NFRAMES-1].q.next = FREE_FRM_TAIL;
 
   for(i=1; i<NFRAMES-1; i++){
-    bzero(frm_tab[i], sizeof(fr_map_t));
+    bzero(&(frm_tab[i]), sizeof(fr_map_t));
     frm_tab[i].q.prev = i-1;
     frm_tab[i].q.next = i+1;
   }

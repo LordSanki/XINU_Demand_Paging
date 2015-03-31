@@ -210,8 +210,8 @@ sysinit()
 	currpid = NULLPROC;
 
 
-  ERROR_CHECK(init_bsm());
-  ERROR_CHECK(init_frm());
+  ERROR_CHECK( init_bsm() );
+  ERROR_CHECK( init_frm() );
   ERROR_CHECK( init_global_page_tables() );
   ERROR_CHECK( init_null_proc() );
   set_evec(14, (unsigned long)pfintr);
