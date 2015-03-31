@@ -142,7 +142,8 @@ int create_pt(pt_t **pt);
 
 #define BSID2PA(ID) (BACKING_STORE_BASE + ((unsigned int)(ID))*BACKING_STORE_UNIT_SIZE)
 
-#define DBG(...) 
+//#define DBG(...)
+#define DBG kprintf
 
 #endif // __PAGING_H__
 

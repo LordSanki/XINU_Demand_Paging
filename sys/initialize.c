@@ -307,6 +307,7 @@ static int init_null_proc()
   pd_t *pd;
   ERROR_CHECK( create_pd(&pd) );
   pptr->pdbr = (unsigned int)pd;
+  DBG("Null proc PDBR %x\n",pptr->pdbr);
   SET_PDBR(pd);
   return OK;
 }
