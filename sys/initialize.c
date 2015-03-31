@@ -297,7 +297,7 @@ static int init_global_page_tables()
       pt[i].pt_base = i*NPTE + j;
       DBG("PT[%d][%d]-->%x | ",i,j,VPN2VAD(pt[i].pt_base));
     }
-    DBG("\n\n")
+    DBG("\n\n");
     global_page_tables[i] = pt;
   }
   return OK;
