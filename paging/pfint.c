@@ -20,7 +20,7 @@ SYSCALL pfint()
   struct pentry * pptr;
   pt_t *pt;
   pd_t *pd;
-
+  DBG("ISR\n");
   // Disable interrupts
   disable(ps);
 
