@@ -50,7 +50,10 @@ SYSCALL pfint()
     pd[ pvadd->pd_offset ].pd_write = 1;
     pd[ pvadd->pd_offset ].pd_base  = VAD2VPN(pt);
   }
-
+  else {
+    pt = VPN2VAD(pd[ pvadd->pd_offset ].pd_base);
+  }
+  
   DBG("PT at %x\n",(unsigned int)pt);
   if(pt[pvadd->pt_offset].pt_pres != 1) {
     // Check to see if the page from the backing store is already in 
