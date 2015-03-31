@@ -34,11 +34,13 @@ SYSCALL pfint()
   ERROR_CHECK3( bsm_lookup(currpid, vadd, &bsid, &bspage), ps, kill(currpid));
 
   pd = (pd_t*)pptr->pdbr;
+  DBG("PD at %x\n",(unsigned int)pd);
   // If the Page Table does not exist create it.
   if(pd[ pvadd->pd_offset ].pd_pres != 1){
     // Create a new page table and fill in its properties in
     // the corresponding page directory entry
     ERROR_CHECK3( create_pt(&pt), ps, kill(currpid) );
+    DBG("Creating PT %d at %x\n",pvadd->pd_offset, (unsigned int)pt);
 
     pd[ pvadd->pd_offset ].pd_pres  = 1;
     pd[ pvadd->pd_offset ].pd_write = 1;
@@ -52,7 +54,7 @@ SYSCALL pfint()
 
   frm_tab[frmid].fr_vpno = VAD2VPN(vadd);
   
-    // Copy the page from the backing store into the frame
+  // Copy the page from the backing store into the frame
   ERROR_CHECK3( read_bs((void *)FRAME_ADDR(frmid), bsid, bspage), ps, kill(currpid) );
 
   // Update the page table
@@ -62,9 +64,33 @@ SYSCALL pfint()
 
   // reset TLB
   write_cr3(read_cr3());
-
+  self_test(vadd, currpid);
+  while(1);
   restore(ps);
   return OK;
 }
+
+void self_test(int vadd, int pid)
+{
+  struct pentry *pptr = &proctabp[pid];
+  virt_addr_t *pv = (virt_addr_t)&vadd;
+  pt_t *pt;
+  pd_t *pd;
+
+  pd = (pd_t*)pptr->pdbr;
+  if(pd == NULL) goto error;
+
+  if(pd[pv->pd_offset].pd_pres == 0) goto error;
+  pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
+  if(pt == NULL) goto error;
+  if(pt[pv->pt_offset].pt_pres == 0) goto error;
+  kprintf( "Page at %x\n", VPN2VAD(pt[pv->pt_offset].pt_base) );
+
+  return;
+  
+error:
+    kprintf("TEst failed\n");
+}
+
 
 
