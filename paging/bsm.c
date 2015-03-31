@@ -89,6 +89,7 @@ SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth)
   }
   *store = bsid;
   *pageth = vpno - bs_map[bsid].bs_vpno;
+  DBG("Mapping found BSID %d page %x\n",*store, *pageth);
   return OK;
 }
 

@@ -27,14 +27,16 @@ void basic_test() {
     	kprintf("xmmap call failed\n");
     	return;
     }
-
-    for (i = 'A'; i <= 'Z'; i++) {
+    i = 'A';
+    //for (i = 'A'; i <= 'Z'; i++) 
+    {
     	*addr = i;
     	addr += NBPG;	//increment by one page each time
     }
 
     addr = (char*) 0x40000000; //1G
-    for (i = 0; i < 16; i++) {
+    //for (i = 0; i < 16; i++) 
+    {
     	kprintf("0x%08x: %c\n", addr, *addr);
     	addr += NBPG;       //increment by one page each time
     }
