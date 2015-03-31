@@ -180,9 +180,11 @@ sysinit()
   ERROR_CHECK( init_global_page_tables() );
   ERROR_CHECK( init_null_proc() );
   set_evec(14, (unsigned long)pfintr);
+  DBG("Starting Paging\n");
 #if 1
   enable_paging();
 #endif
+  DBG("Paging On\n");
 
 #ifdef	MEMMARK
 	_mkinit();			/* initialize memory marking */
@@ -289,12 +291,12 @@ static int init_global_page_tables()
   for(i=0; i<4; i++){
     ERROR_CHECK( create_pt(&pt) );
     for(j=0; j<NPTE; j++){
-      pt[i].pt_pres = 1;
-      pt[i].pt_write = 1;
+      pt[j].pt_pres = 1;
+      pt[j].pt_write = 1;
       // pages are NBPG addressed
       // (pt_num*sizeof_page*num_pte + p_num*sizeof_page)/sizeof_page
       // (i*NPTE*NBPG + j*NBPG)/NBPG
-      pt[i].pt_base = i*NPTE + j;
+      pt[j].pt_base = i*NPTE + j;
       //DBG("PT[%d][%d]-->%x | ",i,j,VPN2VAD(pt[i].pt_base));
     }
     //DBG("\n\n");
@@ -309,7 +311,8 @@ static int init_null_proc()
   pd_t *pd;
   ERROR_CHECK( create_pd(&pd) );
   pptr->pdbr = (unsigned int)pd;
-  SET_PDBR(pd);
+  write_cr3(pptr->pdbr)
+//  SET_PDBR(pptr->pdbr);
   DBG("Null proc pdbr is %x shld be %x\n",read_cr3(), pptr->pdbr);
   return OK;
 }

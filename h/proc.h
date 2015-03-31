@@ -74,9 +74,9 @@ struct	pentry	{
 
 /* for demand paging */
         unsigned long pdbr;             /* PDBR                         */
-        int     store;                  /* backing store for vheap      */
-        int     vhpno;                  /* starting pageno for vheap    */
-        int     vhpnpages;              /* vheap size                   */
+        //int     store;                  /* backing store for vheap      */
+        //int     vhpno;                  /* starting pageno for vheap    */
+        //int     vhpnpages;              /* vheap size                   */
         struct mblock vmemlist;        /* vheap list              	*/
         bs_map_t bs_map[NBS];
 };
