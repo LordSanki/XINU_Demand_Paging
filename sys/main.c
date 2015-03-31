@@ -15,31 +15,30 @@
 void basic_test() {
 
     char *addr = (char*) 0x40000000; //1G
-    bsd_t bs = 1;
+    bsd_t bs = 2;
+    int i;
+    int vpno = VAD2VPN(addr);	// the ith page
 
-    int i = ((unsigned long) addr) >> 12;	// the ith page
+    kprintf("\n\nBasic Xinu Test\n\n");
 
-    kprintf("\n\nHello World, Xinu lives\n\n");
+    get_bs(bs, 50);
 
-    get_bs(bs, 100);
-
-    if (xmmap(i, bs, 100) == SYSERR) {
+    if (xmmap(vpno, bs, 50) == SYSERR) {
     	kprintf("xmmap call failed\n");
-    	return 0;
+    	return;
     }
 
-    for (i = 0; i < 16; i++) {
-    	*addr = 'A' + i;
+    for (i = 'A'; i <= 'Z'; i++) {
+    	*addr = i;
     	addr += NBPG;	//increment by one page each time
     }
 
     addr = (char*) 0x40000000; //1G
     for (i = 0; i < 16; i++) {
     	kprintf("0x%08x: %c\n", addr, *addr);
-    	addr += 4096;       //increment by one page each time
+    	addr += NBPG;       //increment by one page each time
     }
-
-    xmunmap(0x40000000 >> 12);
+    xmunmap(vpno);
 }
 #if 0
 //////////////////////////////////////////////////////////////////////////
@@ -711,101 +710,8 @@ void error_test() {
  *------------------------------------------------------------------------
  */
 int main() {
-#if 0
-    int i, s;
-    int count = 0;
-    char buf[8];
 
+  basic_test();
 
-
-
-    kprintf("Aging policy:\n");
-    kprintf("\t1 - Default (FIFO no output)\n");
-    kprintf("\t2 - FIFO  with output\n");
-    kprintf("\t3 - AGING with output\n");
-    kprintf("\nPlease Input:\n");
-    while ((i = read(CONSOLE, buf, sizeof(buf))) <1);
-    buf[i] = 0;
-    s = atoi(buf);
-    switch (s) {
-    case 1:
-        // Default.. do nothing
-        break;
-    
-    case 2:
-        // FIFO with output
-        srpolicy(FIFO);
-        break;
-        
-    case 3:
-        // AGING with output
-//        srpolicy(AGING);
-        break;
-    }
-#endif
-
-        basic_test();
-#if 0
-
-    kprintf("What test? Most of these best test when NFRAMES=12. Options are:\n");
-    kprintf("\t1 - Basic Test (Recommend NFRAMES=12)\n");
-    kprintf("\t2 - Virtual Heap Test (Recommend NFRAMES=12)\n");
-    kprintf("\t3 - Shared Memory Test (Recommend NFRAMES=12)\n");
-    kprintf("\t4 - Random Access Test (Recommend NFRAMES=22)\n");
-    kprintf("\t5 - Kill Test (Need NFRAMES=1024 and DUSTYDEBUG=1)\n");
-    kprintf("\t6 - Error Test\n");
-    kprintf("\t8 - Combo!\n");
-    kprintf("\nPlease Input:\n");
-    while ((i = read(CONSOLE, buf, sizeof(buf))) <1);
-    buf[i] = 0;
-    s = atoi(buf);
-    switch (s) {
-    case 1:
-        // Basic Test
-        basic_test();
-        break;
-    
-    case 2:
-        // Virtual heap test
-        vheap_test();
-        break;
-        
-    case 3:
-        // Shared Memory Test
-        shmem_test();
-        break;
-
-    case 4:
-        // Random Access Test
-        random_access_test();
-        break;
-
-    case 5:
-        // Kill test
-        kill_test();
-        break;
-
-    case 6:
-        // Kill test
-        error_test();
-        break;
-
-    case 8:
-        // Kill test
-        kill_test();
-        sleep(30);
-        basic_test();
-        sleep(30);
-        random_access_test();
-        sleep(30);
-        vheap_test();
-        sleep(30);
-        shmem_test();
-        sleep(30);
-        error_test();
-        break;
-
-    }
-#endif
-	return 0;
+  return 0;
 }
