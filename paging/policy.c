@@ -31,6 +31,11 @@ SYSCALL grpolicy()
 
 int create_pd(pd_t **pd)
 {
+  create_pd_pid(pd, currpid);
+}
+
+int create_pd_pid(pd_t **pd, int pid)
+{
   int frame_id;
   int i;
 
@@ -40,6 +45,8 @@ int create_pd(pd_t **pd)
 
   (*pd) = (pd_t*)FRAME_ADDR(frame_id);
 
+  frm_tab[frame_id].fr_pid = pid;
+  
   // cleaning the page directory
   bzero((void*)(*pd), NBPG);
   // setting first four page table entries

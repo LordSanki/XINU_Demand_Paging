@@ -31,6 +31,7 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
 	int		i;
 	unsigned long	*a;		/* points to list of args	*/
 	unsigned long	*saddr;		/* stack address		*/
+  pd_t *pd;
 	int		INITRET();
 
 	disable(ps);
@@ -101,6 +102,8 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
   }
   pptr->vmemlist.mnext = 0;
   pptr->vmemlist.mlen = 0;
+  ERROR_CHECK3(create_pd_pid(&pd, pid), ps, kill(pid));
+  pptr->ptbr = (unsigned int)pd;
 	restore(ps);
 
 	return(pid);
