@@ -23,7 +23,7 @@ SYSCALL xmmap(int virtpage, bsd_t source, int npages)
     return SYSERR;
   }
   disable(ps);
-  ERROR_CHECK2( bsm_map(currpid, source, virtpage, npages), ps );
+  ERROR_CHECK2( bsm_map(currpid, virtpage, source, npages), ps );
   
   restore(ps);
   return OK;
