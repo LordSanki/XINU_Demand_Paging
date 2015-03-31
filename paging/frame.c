@@ -16,6 +16,9 @@ void qpush(int tail, int n);
 void qrem(int n);
 int qpop(int head);
 extern int page_replace_policy;
+
+unsigned int findLRU();
+void updateLRU();
 /*-------------------------------------------------------------------------
  * init_frm - initialize frm_tab
  *-------------------------------------------------------------------------
@@ -100,7 +103,7 @@ SYSCALL get_frm(int* avail)
 SYSCALL free_frm(int i)
 {
   STATWORD ps;
-  int vadd = VPN2VADD(frm_tab[i].fr_vpno);
+  int vadd = VPN2VAD(frm_tab[i].fr_vpno);
   virt_addr_t *pv = (virt_addr_t*)&(vadd);
   pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
   disable(ps);
@@ -110,7 +113,7 @@ SYSCALL free_frm(int i)
     return SYSERR;
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED){
-    pt_t *pt = (pt_t*)VPN2VADD(pd[pv->pd_offset].pd_base);
+    pt_t *pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
     int bsid, bspage;
     ERROR_CHECK2( bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage),ps );
     pt[pv->pt_offset].pt_pres = 0;
@@ -118,7 +121,7 @@ SYSCALL free_frm(int i)
       write_bs((char*)FRAME_ADDR(i), bsid, bspage);
       pt[pv->pt_offset].pt_dirty = 0;
     }
-    if(--(frm_tab[FRAME_ID(pt)].ref_cnt) == 0){
+    if(--(frm_tab[FRAME_ID(pt)].fr_refcnt) == 0){
       free_frm(FRAME_ID(pt));
       //pd[pv->pd_offset].pd_pres = 0;
     }
