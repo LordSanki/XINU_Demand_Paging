@@ -42,13 +42,13 @@ int create_pd(pd_t **pd)
 
   // cleaning the page directory
   bzero((void*)(*pd), NBPG);
-  DBG("PD allocated at %x\n",*pd); 
+  DBG("PD allocated at %x\n",(unsigned int)(*pd)); 
   // setting first four page table entries
   for(i=0; i<4; i++){
     (*pd)[i].pd_pres = 1;
     (*pd)[i].pd_write = 1;
     (*pd)[i].pd_base = VAD2VPN(global_page_tables[i]);
-    DBG("PT %d at %x\n",i, VAD2VPN(global_page_tables[i]));
+    DBG("PT %d at %x\n",i, (unsigned int)VAD2VPN(global_page_tables[i]));
   }
   return OK;
 }
