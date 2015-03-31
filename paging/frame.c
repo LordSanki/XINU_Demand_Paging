@@ -30,7 +30,9 @@ SYSCALL init_frm()
 
   tail->q.key = 1;
   head->q.key = 1;
-
+  head->q.next = FREE_FRM_TAIL;
+  tail->q.prev = FREE_FRM_HEAD;
+#if 0
   bzero(&(frm_tab[0]), sizeof(fr_map_t));
   bzero(&(frm_tab[NFRAMES-1]), sizeof(fr_map_t));
   head->q.next = 0;
@@ -45,6 +47,15 @@ SYSCALL init_frm()
     frm_tab[i].q.prev = i-1;
     frm_tab[i].q.next = i+1;
   }
+#endif
+  for(i=0; i<NFRAMES; i++){
+    bzero(&(frm_tab[i]), sizeof(fr_map_t));
+    qpush(FREE_FRM_TAIL, i);
+//    frm_tab[i].q.prev = i-1;
+//    frm_tab[i].q.next = i+1;
+  }
+  if(Q_EMPTY(FREE_FRM_HEAD))
+    kprintf("PANIC_PANIX\n");
   return OK;
 }
 
@@ -56,7 +67,7 @@ SYSCALL get_frm(int* avail)
 {
   if( Q_EMPTY(FREE_FRM_HEAD) ){
     // free q is empty we need to replace a frame
-    kprintf("To be implemented!\n");
+    kprintf("OUT of MEM PANIC!!\n");
   }
   else{
     *avail = qpop(FREE_FRM_HEAD);
