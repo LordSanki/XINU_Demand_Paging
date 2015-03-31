@@ -10,6 +10,7 @@
  *-------------------------------------------------------------------------
  */
 
+void self_test(int vadd, int pid);
 SYSCALL pfint()
 {
   STATWORD ps;
@@ -72,8 +73,8 @@ SYSCALL pfint()
 
 void self_test(int vadd, int pid)
 {
-  struct pentry *pptr = &proctabp[pid];
-  virt_addr_t *pv = (virt_addr_t)&vadd;
+  struct pentry *pptr = &proctab[pid];
+  virt_addr_t *pv = (virt_addr_t*)&vadd;
   pt_t *pt;
   pd_t *pd;
 
