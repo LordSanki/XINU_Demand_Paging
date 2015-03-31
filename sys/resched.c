@@ -4,7 +4,7 @@
 #include <kernel.h>
 #include <proc.h>
 #include <q.h>
-
+#include <paging.h>
 unsigned long currSP;	/* REAL sp of current process */
 
 /*------------------------------------------------------------------------
@@ -82,7 +82,8 @@ int	resched()
 #ifdef	DEBUG
 	PrintSaved(nptr);
 #endif
-	
+
+  SET_PDBR(optr->pdbr);
 	ctxsw(&optr->pesp, optr->pirmask, &nptr->pesp, nptr->pirmask);
 
 #ifdef	DEBUG

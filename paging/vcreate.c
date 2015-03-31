@@ -28,8 +28,32 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
 	long	args;			/* arguments (treated like an	*/
 					/* array in the code)		*/
 {
-	kprintf("To be implemented!\n");
-	return OK;
+  STATWORD ps;
+  int pid;
+  int bsid;
+  struct pentry * pptr;
+  struct mblock *first_block;
+  disable(ps);
+  pid = create(procaddr, ssize, priority, name, nargs, args);
+  
+  if(isbadpid(pid)){
+    kprintf("Unable to create proc\n");
+    restore (ps);
+    return SYSERR;
+  }
+  pptr = &proctab[pid];
+
+  ERROR_CHECK2( get_bsm(&bsid), ps );
+  
+  ERROR_CHECK2( bsm_map(pid, 4096, bsid, hsize), ps);
+
+  pptr->vmemlist.mnext = (struct mblock*) (4096*NBPG);
+  first_block = (struct mblock*)BSID2ADD(bsid);
+  first_block->mnext = 0;
+  first_block->mlen = hsize*NBPG;
+
+  restore(ps);
+  return OK;
 }
 
 /*------------------------------------------------------------------------
