@@ -18,21 +18,13 @@ SYSCALL xmmap(int virtpage, bsd_t source, int npages)
     kprintf("xmmap call error: parameter error! \n");
     return SYSERR;
   }
-
+  if(bsm_tab[source].bs_status == BSM_MAPPED_PR){
+    kprintf("Error: Trying to map private heap\n");
+    return SYSERR;
+  }
   disable(ps);
-  if( bsm_tab[source].bs_status == BSM_UNMAPPED ){
-    bsm_tab[source].bs_status = BSM_MAPPED_SH;
-    bsm_tab[source].bs_ref = 0;
-    if(OK !=  bsm_map(currpid, source, virtpage, npages) ){
-      bsm_tab[source].bs_status = BSM_UNMAPPED;
-      restore(ps);
-      return SYSERR;
-    }
-  }
-  else{
-    ERROR_CHECK2( bsm_map(currpid, source, virtpage, npages), ps );
-  }
-
+  ERROR_CHECK2( bsm_map(currpid, source, virtpage, npages), ps );
+  
   restore(ps);
   return OK;
 }
