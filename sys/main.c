@@ -5,8 +5,8 @@
 #include <proc.h>
 #include <stdio.h>
 #include <paging.h>
-#include <bs.h>
-#include <frame.h>
+//#include <bs.h>
+//#include <frame.h>
 #include <sem.h>
 
 //////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ void basic_test() {
 
     xmunmap(0x40000000 >> 12);
 }
-
+#if 0
 //////////////////////////////////////////////////////////////////////////
 //  vheap_test
 //////////////////////////////////////////////////////////////////////////
@@ -705,12 +705,13 @@ void error_test() {
     sleep(1);
 
 }
-
+#endif
 /*------------------------------------------------------------------------
  *  main  --  user main program
  *------------------------------------------------------------------------
  */
 int main() {
+#if 0
     int i, s;
     int count = 0;
     char buf[8];
@@ -738,10 +739,13 @@ int main() {
         
     case 3:
         // AGING with output
-        srpolicy(AGING);
+//        srpolicy(AGING);
         break;
     }
+#endif
 
+        basic_test();
+#if 0
 
     kprintf("What test? Most of these best test when NFRAMES=12. Options are:\n");
     kprintf("\t1 - Basic Test (Recommend NFRAMES=12)\n");
@@ -802,5 +806,6 @@ int main() {
         break;
 
     }
+#endif
 	return 0;
 }
