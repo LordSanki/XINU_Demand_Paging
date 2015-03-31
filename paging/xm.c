@@ -20,11 +20,11 @@ SYSCALL xmmap(int virtpage, bsd_t source, int npages)
   }
 
   disable(ps);
-  if( bsm_tab[source].bs_status == BS_UNMAPPED ){
-    bsm_tab[source].bs_status = BS_MAPPED_SH;
+  if( bsm_tab[source].bs_status == BSM_UNMAPPED ){
+    bsm_tab[source].bs_status = BSM_MAPPED_SH;
     bsm_tab[source].bs_ref = 0;
     if(OK !=  bsm_map(currpid, source, virtpage, npages) ){
-      bsm_tab[source].bs_status = BS_UNMAPPED;
+      bsm_tab[source].bs_status = BSM_UNMAPPED;
       restore(ps);
       return SYSERR;
     }
@@ -54,7 +54,6 @@ SYSCALL xmunmap(int virtpage )
   
   ERROR_CHECK2( bsm_unmap(currpid, virtpage), ps);
 
-  //kprintf("To be implemented!");
   return OK;
 }
 

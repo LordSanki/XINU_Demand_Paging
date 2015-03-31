@@ -59,25 +59,25 @@ SYSCALL kill(int pid)
 
   // releasing all frames held
   for(i=0; i<NFRAMES; i++){
-    if(frm_tab[i].pid == pid){
+    if(frm_tab[i].fr_pid == pid){
       free_frm(i);
     }
   }
 
   // remove BS mappings
   for(i=0; i<NBS; i++){
-    if(pptr->bs_map[i].bs_status == BS_MAPPED_SH){
-      if( --bsm_tab[i].ref == 0){
+    if(pptr->bs_map[i].bs_status == BSM_MAPPED_SH){
+      if( --bsm_tab[i].bs_ref == 0){
         free_bsm(i);
       }
     }
-    if(pptr->bs_map[i].bs_status == BS_MAPPED_PR){
+    if(pptr->bs_map[i].bs_status == BSM_MAPPED_PR){
         free_bsm(i);
     }
   }
   
   // removing PD and PT
-  delete_pd(pptr->pdbr);
+  delete_pd((pd_t*)pptr->pdbr);
 
 	restore(ps);
 	return(OK);

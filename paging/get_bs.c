@@ -12,11 +12,11 @@ int get_bs(bsd_t bs_id, unsigned int npages) {
     return SYSERR;
 
   /* requests a new mapping of npages with ID map_id */
-  if(bsm_tab[bs_id].bs_status == BSM_MAPPED)
-    return bsm[bs_id].bs_npages;
+  if(bsm_tab[bs_id].bs_status != BSM_UNMAPPED)
+    return bsm_tab[bs_id].bs_npages;
 
   // disable(ps);
-  bsm_tab[bs_id].bs_status = BSM_MAPPED;
+  bsm_tab[bs_id].bs_status = BSM_MAPPED_SH;
   bsm_tab[bs_id].bs_npages = npages;
   // restore(ps);
     

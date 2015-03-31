@@ -13,7 +13,7 @@
 static unsigned long esp;
 */
 
-LOCAL	newpid();
+//LOCAL	newpid();
 /*------------------------------------------------------------------------
  *  create  -  create a process to start running a procedure
  *------------------------------------------------------------------------
@@ -48,7 +48,7 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
   ERROR_CHECK2( bsm_map(pid, 4096, bsid, hsize), ps);
 
   pptr->vmemlist.mnext = (struct mblock*) (4096*NBPG);
-  first_block = (struct mblock*)BSID2ADD(bsid);
+  first_block = (struct mblock*)BSID2PA(bsid);
   first_block->mnext = 0;
   first_block->mlen = hsize*NBPG;
 
@@ -60,6 +60,7 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
  * newpid  --  obtain a new (free) process id
  *------------------------------------------------------------------------
  */
+#if 0
 LOCAL	newpid()
 {
 	int	pid;			/* process id to return		*/
@@ -73,3 +74,5 @@ LOCAL	newpid()
 	}
 	return(SYSERR);
 }
+#endif
+

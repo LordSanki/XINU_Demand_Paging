@@ -11,6 +11,12 @@ fr_map_t frm_tab[NFRAMES + 4];
 #define MAP_TAIL 1027
 #define Q_EMPTY(HEAD) (frm_tab[frm_tab[(HEAD)].q.next].q.key != 1)
 #define Q_INVALID(X) ( ((X) < 0) && ((X) >= NFRAMES) )
+
+pt_t* find_page_entry(int pid, int vpno);
+pt_t* find_page_table(int pid, int vpno);
+void qpush(int tail, int n);
+void qrem(int n);
+int qpop(int head);
 /*-------------------------------------------------------------------------
  * init_frm - initialize frm_tab
  *-------------------------------------------------------------------------
@@ -19,8 +25,8 @@ SYSCALL init_frm()
 {
   int i;
   
-  frm_queue_t *head = &frm_tab[FREE_FRM_HEAD];
-  frm_queue_t *tail = &frm_tab[FREE_FRM_TAIL];
+  fr_map_t *head = &frm_tab[FREE_FRM_HEAD];
+  fr_map_t *tail = &frm_tab[FREE_FRM_TAIL];
 
   tail->q.key = 1;
   head->q.key = 1;
@@ -59,7 +65,7 @@ SYSCALL get_frm(int* avail)
       return SYSERR;
     }
   }
-  frm_tab[(*avail)].fr_status = FR_MAPPED;
+  frm_tab[(*avail)].fr_status = FRM_MAPPED;
   frm_tab[(*avail)].fr_pid = currpid;
   frm_tab[(*avail)].fr_vpno = 0;
   frm_tab[(*avail)].fr_loadtime = 0;
@@ -73,15 +79,13 @@ SYSCALL get_frm(int* avail)
  */
 SYSCALL free_frm(int i)
 {
-  pt_t * pt = find_page_entry(frm_tab[i].pid, frm_tab[i].vpno);
+  pt_t * pt = find_page_entry(frm_tab[i].fr_pid, frm_tab[i].fr_vpno);
   int bsid, bspage;
-  ERROR_CHECK( bsm_lookup(frm_tab[i].pid, VPN2VAD(frm_tab[i].vpno), &bsid, &bspage) );
+  ERROR_CHECK( bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage) );
   pt->pt_pres = 0;
   if(pt->pt_dirty){
     write_bs((char*)FRAME_ADDR(i), bsid, bspage);
     pt->pt_dirty = 0;
-    //kprintf("Writeback to BS\n");
-    //kprintf("To be implemented!\n");
   }
   qrem(i);
   qpush(FREE_FRM_TAIL, i);
@@ -94,7 +98,7 @@ int qpop(int head)
   
   int n = frm_tab[head].q.next;
   frm_tab[head].q.next = frm_tab[n].q.next;
-  frm_tab[frm_tab[head].q.next].prev = FREE_FRM_HEAD;
+  frm_tab[frm_tab[head].q.next].q.prev = FREE_FRM_HEAD;
   frm_tab[n].q.prev = frm_tab[n].q.next = n;
   return n;
 }
@@ -122,14 +126,16 @@ void qrem(int n)
 pt_t* find_page_entry(int pid, int vpno){
   int vadd = VPN2VAD(vpno);
   virt_addr_t *pvadd = (virt_addr_t*)&vadd;
-  pt_t *pt = (pt_t*)VPN2VAD(proctab[pid].pdbr[pvadd->pd_offset].pd_base);
+  pd_t *pd = (pd_t*)proctab[pid].pdbr;
+  pt_t *pt = (pt_t*)VPN2VAD(pd[pvadd->pd_offset].pd_base);
   return &pt[pvadd->pt_offset];
 }
 
 pt_t* find_page_table(int pid, int vpno){
   int vadd = VPN2VAD(vpno);
   virt_addr_t *pvadd = (virt_addr_t*)&vadd;
-  pt_t *pt = (pt_t*)VPN2VAD(proctab[pid].pdbr[pvadd->pd_offset].pd_base);
+  pd_t *pd = (pd_t*)proctab[pid].pdbr;
+  pt_t *pt = (pt_t*)VPN2VAD(pd[pvadd->pd_offset].pd_base);
   return pt;
 }
 

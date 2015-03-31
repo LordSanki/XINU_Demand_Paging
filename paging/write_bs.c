@@ -12,7 +12,7 @@ SYSCALL write_bs(char *src, bsd_t bs_id, int page) {
      page.
   */
 
-  void * phy_addr = BACKING_STORE_BASE + bs_id*BACKING_STORE_UNIT_SIZE + page*NBPG;
+  void * phy_addr = (void*)(BACKING_STORE_BASE + bs_id*BACKING_STORE_UNIT_SIZE + page*NBPG);
   if( INVALID_BSID(bs_id) )
     return SYSERR;
 

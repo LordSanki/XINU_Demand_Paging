@@ -9,9 +9,9 @@ SYSCALL release_bs(bsd_t bs_id) {
   if( INVALID_BSID(bs_id) )
     return SYSERR;
 
-  bsm_tab[bs_id].bs_status = BS_UNMAPPED;
+  bsm_tab[bs_id].bs_status = BSM_UNMAPPED;
   bsm_tab[bs_id].bs_npages = BS_SIZE;
-  bsm_tab[bs_id].bs_pid = 0;
+  //bsm_tab[bs_id].bs_pid = 0;
   return OK;
 }
 

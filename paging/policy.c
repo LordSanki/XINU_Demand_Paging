@@ -6,6 +6,7 @@
 
 extern pt_t* global_page_tables[4];
 extern int page_replace_policy;
+int delete_pt(pt_t *pt);
 /*-------------------------------------------------------------------------
  * srpolicy - set page replace policy 
  *-------------------------------------------------------------------------
@@ -35,7 +36,7 @@ int create_pd(pd_t **pd)
 
   ERROR_CHECK( get_frm(&frame_id) );
   
-  frm_tab[frame_id].fr_status = FR_MAPPED_PT;
+  frm_tab[frame_id].fr_status = FRM_MAPPED_PT;
 
   (*pd) = (pd_t*)FRAME_ADDR(frame_id);
 
@@ -55,8 +56,8 @@ int delete_pd(pd_t *pd)
 {
   int i;
   for(i=0; i<NPTE; i++){
-    if(pd[i].pt_pres){
-      ERROR_CHECK( delete_pt( (pt_t*)(VPN2VAD(pd[i].pt_base)) ) );
+    if(pd[i].pd_pres){
+      ERROR_CHECK( delete_pt( (pt_t*)(VPN2VAD(pd[i].pd_base)) ) );
     }
   }
   ERROR_CHECK( free_frm(FRAME_ID(pd)) );
@@ -69,7 +70,7 @@ int create_pt(pt_t **pt)
   // getting a free frame id
   ERROR_CHECK( get_frm(&frame_id) );
 
-  frm_tab[frame_id].fr_status = FR_MAPPED_PT;
+  frm_tab[frame_id].fr_status = FRM_MAPPED_PT;
 
   // getting address of frame
   (*pt) = (pt_t*)FRAME_ADDR(frame_id);

@@ -25,7 +25,7 @@ SYSCALL	vfreemem(block, size)
     return SYSERR;
   }
 
-  pptr = &proctab[qpid];
+  pptr = &proctab[currpid];
   size = (unsigned)roundmb(size);
   disable(ps);
   

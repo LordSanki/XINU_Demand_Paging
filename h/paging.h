@@ -85,6 +85,17 @@ SYSCALL read_bs(char *, bsd_t, int);
 SYSCALL write_bs(char *, bsd_t, int);
 void clear_bs_map(bs_map_t *map);
 
+SYSCALL get_bsm(int* avail);
+SYSCALL free_bsm(int i);
+SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth);
+SYSCALL bsm_map(int pid, int vpno, int source, int npages);
+SYSCALL bsm_unmap(int pid, int vpno);
+SYSCALL free_frm(int i);
+SYSCALL get_frm(int* avail);
+SYSCALL init_frm();
+int create_pd(pd_t **pd);
+int delete_pd(pd_t *pd);
+int create_pt(pt_t **pt);
 #define NBPG		4096	/* number of bytes per page	*/
 #define FRAME0		1024	/* zero-th frame */
 #define NPTE 1024 /* Num PT Entries = 2^pt_offset */

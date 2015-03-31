@@ -215,7 +215,7 @@ sysinit()
   ERROR_CHECK( init_global_page_tables() );
   ERROR_CHECK( init_null_proc() );
   set_evec(14, (unsigned long)pfintr);
-#if 0
+#if 1
   enable_paging();
 #endif
 

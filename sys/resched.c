@@ -20,7 +20,7 @@ int	resched()
 	STATWORD		PS;
 	register struct	pentry	*optr;	/* pointer to old process entry */
 	register struct	pentry	*nptr;	/* pointer to new process entry */
-	register int i;
+//	register int i;
 
 	disable(PS);
 	/* no switch needed if current process priority higher than next*/

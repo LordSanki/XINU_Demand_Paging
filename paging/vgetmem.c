@@ -21,13 +21,13 @@ WORD	*vgetmem(nbytes)
   struct pentry * pptr;
 
   if (nbytes == 0)
-    return SYSERR;
+    return (WORD*)SYSERR;
 
   disable(ps);
-  pptr = &proctab[qpid];
+  pptr = &proctab[currpid];
   if (pptr->vmemlist.mnext == NULL) {
     restore(ps);
-    return SYSERR;
+    return (WORD*)SYSERR;
   }
   nbytes = (unsigned int) roundmb(nbytes);
 
@@ -51,7 +51,7 @@ WORD	*vgetmem(nbytes)
 
   restore(ps);
   kprintf("ERROR: (vgetmem) out of memory\n");
-  return SYSERR;
+  return (WORD*)SYSERR;
 }
 
 
