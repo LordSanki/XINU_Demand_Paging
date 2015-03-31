@@ -116,9 +116,10 @@ int create_pt(pt_t **pt);
 #define FRM_UNMAPPED	0
 #define FRM_MAPPED	1
 #define FRM_MAPPED_PT	2
+#define FRM_MAPPED_PD	3
 
 #define FIFO		3
-#define GCM		4
+#define LRU		4
 
 #define MAX_ID          15              /* You get 10 mappings, 0 - 9 */
 

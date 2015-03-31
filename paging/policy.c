@@ -15,9 +15,10 @@ int delete_pt(pt_t *pt);
 SYSCALL srpolicy(int policy)
 {
   /* sanity check ! */
-
-  kprintf("To be implemented!\n");
-
+  if(policy != LRU && policy != FIFO)
+    return SYSERR;
+//  kprintf("To be implemented!\n");
+  page_replace_policy = policy;
   return OK;
 }
 
@@ -42,7 +43,7 @@ int create_pd_pid(pd_t **pd, int pid)
 
   ERROR_CHECK( get_frm(&frame_id) );
   
-  frm_tab[frame_id].fr_status = FRM_MAPPED_PT;
+  frm_tab[frame_id].fr_status = FRM_MAPPED_PD;
 
   (*pd) = (pd_t*)FRAME_ADDR(frame_id);
 

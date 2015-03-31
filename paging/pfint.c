@@ -9,7 +9,7 @@
  * pfint - paging fault ISR
  *-------------------------------------------------------------------------
  */
-
+extern int page_replace_policy; 
 void self_test(int vadd, int pid);
 SYSCALL pfint()
 {
@@ -31,9 +31,11 @@ SYSCALL pfint()
 
   vadd = read_cr2();
   pvadd = (virt_addr_t*)&vadd;
-  
+
   // Update the LRU counters of frames
-  //updateLRU();
+  if(page_replace_policy == LRU){
+    updateLRU();
+  }
 
   ERROR_CHECK3( bsm_lookup(currpid, vadd, &bsid, &bspage), ps, kill(currpid));
 

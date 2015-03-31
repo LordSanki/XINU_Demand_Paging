@@ -11,6 +11,7 @@ SYSCALL release_bs(bsd_t bs_id) {
 
   bsm_tab[bs_id].bs_status = BSM_UNMAPPED;
   bsm_tab[bs_id].bs_npages = BS_SIZE;
+  proctab[currpid].bs_map[bs_id].bs_status = BSM_UNMAPPED;
   //bsm_tab[bs_id].bs_pid = 0;
   return OK;
 }

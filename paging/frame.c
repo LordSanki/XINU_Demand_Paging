@@ -5,18 +5,17 @@
 #include <paging.h>
 
 fr_map_t frm_tab[NFRAMES + 4];
-#define FREE_FRM_HEAD 1024
-#define FREE_FRM_TAIL 1025
-#define MAP_HEAD 1026
-#define MAP_TAIL 1027
+#define FREE_HEAD 1024
+#define FREE_TAIL 1025
+#define FIFO_HEAD 1026
+#define FIFO_TAIL 1027
 #define Q_EMPTY(HEAD) (frm_tab[frm_tab[(HEAD)].q.next].q.key == 1)
 #define Q_INVALID(X) ( ((X) < 0) && ((X) >= NFRAMES) )
 
-pt_t* find_page_entry(int pid, int vpno);
-pt_t* find_page_table(int pid, int vpno);
 void qpush(int tail, int n);
 void qrem(int n);
 int qpop(int head);
+extern int page_replace_policy;
 /*-------------------------------------------------------------------------
  * init_frm - initialize frm_tab
  *-------------------------------------------------------------------------
@@ -25,36 +24,27 @@ SYSCALL init_frm()
 {
   int i;
   
-  fr_map_t *head = &frm_tab[FREE_FRM_HEAD];
-  fr_map_t *tail = &frm_tab[FREE_FRM_TAIL];
+  fr_map_t *head = &frm_tab[FREE_HEAD];
+  fr_map_t *tail = &frm_tab[FREE_TAIL];
+
+  fr_map_t *fifo_head = &frm_tab[FIFO_HEAD];
+  fr_map_t *fifo_tail = &frm_tab[FIFO_TAIL];
 
   tail->q.key = 1;
   head->q.key = 1;
-  head->q.next = FREE_FRM_TAIL;
-  tail->q.prev = FREE_FRM_HEAD;
-#if 0
-  bzero(&(frm_tab[0]), sizeof(fr_map_t));
-  bzero(&(frm_tab[NFRAMES-1]), sizeof(fr_map_t));
-  head->q.next = 0;
-  frm_tab[0].q.prev = FREE_FRM_HEAD;
-  frm_tab[0].q.next = 1;
-  tail->q.prev = NFRAMES-1;
-  frm_tab[NFRAMES-1].q.prev = NFRAMES-2;
-  frm_tab[NFRAMES-1].q.next = FREE_FRM_TAIL;
+  head->q.next = FREE_TAIL;
+  tail->q.prev = FREE_HEAD;
 
-  for(i=1; i<NFRAMES-1; i++){
-    bzero(&(frm_tab[i]), sizeof(fr_map_t));
-    frm_tab[i].q.prev = i-1;
-    frm_tab[i].q.next = i+1;
-  }
-#endif
+  fifo_tail->q.key = 1;
+  fifo_head->q.key = 1;
+  fifo_head->q.next = FIFO_TAIL;
+  fifo_tail->q.prev = FIFO_HEAD;
+
   for(i=0; i<NFRAMES; i++){
     bzero(&(frm_tab[i]), sizeof(fr_map_t));
-    qpush(FREE_FRM_TAIL, i);
-//    frm_tab[i].q.prev = i-1;
-//    frm_tab[i].q.next = i+1;
+    qpush(FREE_TAIL, i);
   }
-  if(Q_EMPTY(FREE_FRM_HEAD))
+  if(Q_EMPTY(FREE_HEAD))
     kprintf("PANIC_PANIX\n");
   return OK;
 }
@@ -65,14 +55,31 @@ SYSCALL init_frm()
  */
 SYSCALL get_frm(int* avail)
 {
-  if( Q_EMPTY(FREE_FRM_HEAD) ){
+  STATWORD ps;
+  disable(ps);
+  if( Q_EMPTY(FREE_HEAD) ){
     // free q is empty we need to replace a frame
-    kprintf("OUT of MEM PANIC!!\n");
+    if(page_replace_policy == FIFO){
+      do{
+        if(Q_EMPTY(FIFO_HEAD)){
+          kprintf("Out of memory\n");
+          return SYSERR;
+        }
+        *avail = qpop(FIFO_HEAD);
+      }while(frm_tab[*avail].fr_status != FRM_MAPPED);
+      free_frm(*avail);
+    }
+    else{
+      *avail = findLRU();
+      qrem(*avail);
+      kprintf("OUT of MEM PANIC!!\n");
+    }
   }
   else{
-    *avail = qpop(FREE_FRM_HEAD);
+    *avail = qpop(FREE_HEAD);
     if(Q_INVALID(*avail)){
       kprintf("Unable to get a free frame\n");
+      restore (ps);
       return SYSERR;
     }
   }
@@ -81,7 +88,8 @@ SYSCALL get_frm(int* avail)
   frm_tab[(*avail)].fr_vpno = 0;
   frm_tab[(*avail)].fr_loadtime = 0;
   frm_tab[(*avail)].fr_refcnt = 0;
-
+  qpush(FIFO_TAIL, (*avail));
+  restore(ps);
   return OK;
 }
 
@@ -91,16 +99,38 @@ SYSCALL get_frm(int* avail)
  */
 SYSCALL free_frm(int i)
 {
-  pt_t * pt = find_page_entry(frm_tab[i].fr_pid, frm_tab[i].fr_vpno);
-  int bsid, bspage;
-  ERROR_CHECK( bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage) );
-  pt->pt_pres = 0;
-  if(pt->pt_dirty){
-    write_bs((char*)FRAME_ADDR(i), bsid, bspage);
-    pt->pt_dirty = 0;
+  STATWORD ps;
+  int vadd = VPN2VADD(frm_tab[i].fr_vpno);
+  virt_addr_t *pv = (virt_addr_t*)&(vadd);
+  pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
+  disable(ps);
+  if(frm_tab[i].fr_status == FRM_UNMAPPED){
+    kprintf("Error unmapping frame Frame is not mapped\n");
+    restore(ps);
+    return SYSERR;
+  }
+  else if(frm_tab[i].fr_status == FRM_MAPPED){
+    pt_t *pt = (pt_t*)VPN2VADD(pd[pv->pd_offset].pd_base);
+    int bsid, bspage;
+    ERROR_CHECK2( bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage),ps );
+    pt[pv->pt_offset].pt_pres = 0;
+    if(pt[pv->pt_offset].pt_dirty){
+      write_bs((char*)FRAME_ADDR(i), bsid, bspage);
+      pt[pv->pt_offset].pt_dirty = 0;
+    }
+    if(--(frm_tab[FRAME_ID(pt)].ref_cnt) == 0){
+      free_frm(FRAME_ID(pt));
+      //pd[pv->pd_offset].pd_pres = 0;
+    }
+  }
+  else if(frm_tab[i].fr_status == FRM_MAPPED_PT){
+    pd[pv->pd_offset].pd_pres = 0;
+  }
+  else if(frm_tab[i].fr_status == FRM_MAPPED_PD){
   }
   qrem(i);
-  qpush(FREE_FRM_TAIL, i);
+  qpush(FREE_TAIL, i);
+  restore(ps);
   return OK;
 }
 
@@ -110,7 +140,7 @@ int qpop(int head)
   
   int n = frm_tab[head].q.next;
   frm_tab[head].q.next = frm_tab[n].q.next;
-  frm_tab[frm_tab[head].q.next].q.prev = FREE_FRM_HEAD;
+  frm_tab[frm_tab[head].q.next].q.prev = FREE_HEAD;
   frm_tab[n].q.prev = frm_tab[n].q.next = n;
   return n;
 }
@@ -135,19 +165,51 @@ void qrem(int n)
   frm_tab[n].q.prev = frm_tab[n].q.next = n;
 }
 
-pt_t* find_page_entry(int pid, int vpno){
-  int vadd = VPN2VAD(vpno);
-  virt_addr_t *pvadd = (virt_addr_t*)&vadd;
-  pd_t *pd = (pd_t*)proctab[pid].pdbr;
-  pt_t *pt = (pt_t*)VPN2VAD(pd[pvadd->pd_offset].pd_base);
-  return &pt[pvadd->pt_offset];
+void updateLRU()
+{
+  static int timeCount = 0;
+  pd_t *pd;
+  pt_t *pt;
+  int vadd;
+  virt_addr_t *pv;
+  timeCount++;
+  fr_map_t *head = &frm_tab[FIFO_HEAD];
+  fr_map_t *tail = &frm_tab[FIFO_TAIL];
+  fr_map_t *next = &frm_tab[head->q.next];
+  while(next != tail){
+    if(next->fr_status == FRM_MAPPED){
+      vadd = VPN2VAD(next->fr_vpno);
+      pv = (virt_addr_t*)vadd;
+      pd = (pd_t*)proctab[next->fr_pid].pdbr;
+      pt = VPN2VAD(pd[pv->pd_offset].pd_base);
+      if(pt[pv->pt_offset].pt_acc == 1){
+        next->fr_loadtime = timeCount;
+        pt[pv->pt_offset].pt_acc = 0;
+      }
+    }
+    next = &frm_tab[next->q.next];
+  }
 }
 
-pt_t* find_page_table(int pid, int vpno){
-  int vadd = VPN2VAD(vpno);
-  virt_addr_t *pvadd = (virt_addr_t*)&vadd;
-  pd_t *pd = (pd_t*)proctab[pid].pdbr;
-  pt_t *pt = (pt_t*)VPN2VAD(pd[pvadd->pd_offset].pd_base);
-  return pt;
+unsigned int findLRU()
+{
+  fr_map_t *id;
+  fr_map_t *head = &frm_tab[FIFO_HEAD];
+  fr_map_t *tail = &frm_tab[FIFO_TAIL];
+  fr_map_t *next = &frm_tab[head->q.next];
+  if(next == tail) return 1023;
+  id = next;
+  while(next != tail){
+    if(next->fr_status == FRM_MAPPED){
+      if(id->fr_loadtime > next->fr_loadtime)
+        id = next;
+    }
+  }
+  head = &frm_tab[0];
+  return ((unsigned int)(id-head))/sizeof(fr_map_t);
 }
+
+
+
+
 
