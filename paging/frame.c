@@ -80,6 +80,7 @@ SYSCALL get_frm(int* avail)
   frm_tab[(*avail)].fr_pid = currpid;
   frm_tab[(*avail)].fr_vpno = 0;
   frm_tab[(*avail)].fr_loadtime = 0;
+  frm_tab[(*avail)].fr_refcnt = 0;
 
   return OK;
 }

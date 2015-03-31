@@ -5,7 +5,7 @@
 
 int get_bs(bsd_t bs_id, unsigned int npages) {
 
-  // STATWORD ps;
+  STATWORD ps;
 
   // input sanity check
   if( (npages < 1) || (npages > BS_SIZE) || INVALID_BSID(bs_id) ){

@@ -103,7 +103,7 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
   pptr->vmemlist.mnext = 0;
   pptr->vmemlist.mlen = 0;
   ERROR_CHECK3(create_pd_pid(&pd, pid), ps, kill(pid));
-  pptr->ptbr = (unsigned int)pd;
+  pptr->pdbr = (unsigned int)pd;
 	restore(ps);
 
 	return(pid);

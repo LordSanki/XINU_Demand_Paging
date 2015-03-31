@@ -63,7 +63,7 @@ typedef struct{
   int fr_status;			/* MAPPED or UNMAPPED	or PT	*/
   int fr_pid;				/* process id using this frame  */
   int fr_vpno;				/* corresponding virtual page no*/
-  //int fr_refcnt;			/* reference count		*/
+  int fr_refcnt;			/* reference count		*/
   //int fr_type;				/* FR_DIR, FR_TBL, FR_PAGE	*/
   //int fr_dirty;
   //void *cookie;				/* private data structure	*/
@@ -142,8 +142,8 @@ int create_pt(pt_t **pt);
 
 #define BSID2PA(ID) (BACKING_STORE_BASE + ((unsigned int)(ID))*BACKING_STORE_UNIT_SIZE)
 
-//#define DBG(...)
-#define DBG kprintf
+#define DBG(...)
+//#define DBG kprintf
 
 #endif // __PAGING_H__
 

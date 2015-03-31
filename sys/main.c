@@ -15,7 +15,7 @@
 void basic_test() {
 
     char *addr = (char*) 0x40000000; //1G
-    bsd_t bs = 2;
+    bsd_t bs = 0;
     int i;
     int vpno = VAD2VPN(addr);	// the ith page
 
