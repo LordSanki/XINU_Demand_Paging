@@ -1,4 +1,6 @@
 /* paging.h */
+#ifndef __PAGING_H__
+#define __PAGING_H__
 
 typedef unsigned int	 bsd_t;
 
@@ -42,23 +44,31 @@ typedef struct{
   unsigned int pd_offset : 10;		/* page directory offset	*/
 } virt_addr_t;
 
+
 typedef struct{
-  int bs_status;			/* MAPPED or UNMAPPED		*/
-  int bs_pid;				/* process id using this slot   */
-  int bs_vpno;				/* starting virtual page number */
-  int bs_npages;			/* number of pages in the store */
-  int bs_sem;				/* semaphore mechanism ?	*/
+  unsigned int bs_status : 2;			/* MAPPED_SH or UNMAPPED	or MAPPED_PR	*/
+  unsigned int bs_npages : 15;			/* number of pages in the store */
+  unsigned int bs_ref : 15;				/* process id using this slot   */
+  unsigned int bs_vpno : 32;				/* starting virtual page number */
+  //int bs_sem;				/* semaphore mechanism ?	*/
 } bs_map_t;
 
 typedef struct{
-  int fr_status;			/* MAPPED or UNMAPPED		*/
+  unsigned int prev : 15;
+  unsigned int next : 15;
+  unsigned int key  : 2;
+}frm_queue_t;
+
+typedef struct{
+  int fr_status;			/* MAPPED or UNMAPPED	or PT	*/
   int fr_pid;				/* process id using this frame  */
   int fr_vpno;				/* corresponding virtual page no*/
-  int fr_refcnt;			/* reference count		*/
-  int fr_type;				/* FR_DIR, FR_TBL, FR_PAGE	*/
-  int fr_dirty;
-  void *cookie;				/* private data structure	*/
+  //int fr_refcnt;			/* reference count		*/
+  //int fr_type;				/* FR_DIR, FR_TBL, FR_PAGE	*/
+  //int fr_dirty;
+  //void *cookie;				/* private data structure	*/
   unsigned long int fr_loadtime;	/* when the page is loaded 	*/
+  frm_queue_t q; /* structure to support queues*/
 }fr_map_t;
 
 extern bs_map_t bsm_tab[];
@@ -73,28 +83,54 @@ int get_bs(bsd_t, unsigned int);
 SYSCALL release_bs(bsd_t);
 SYSCALL read_bs(char *, bsd_t, int);
 SYSCALL write_bs(char *, bsd_t, int);
+void clear_bs_map(bs_map_t *map);
 
 #define NBPG		4096	/* number of bytes per page	*/
-#define FRAME0		1024	/* zero-th frame		*/
+#define FRAME0		1024	/* zero-th frame */
+#define NPTE 1024 /* Num PT Entries = 2^pt_offset */
+
+#define FRAME_BASE (FRAME0*NBPG)
+
+#define FRAME_ADDR(ID) ( FRAME_BASE + (((unsigned int)ID)*NBPG) )
+#define FRAME_ID(ADDR) ( (((unsigned int)ADDR)-FRAME_BASE)/NBPG )
 
 //default 3072 frames --> 1024+3072=4096=16M
 //#define NFRAMES 	3072	/* number of frames		*/
-#define NFRAMES 	8	/* number of frames		*/
+#define NFRAMES 	1024	/* number of frames		*/
 
 #define BSM_UNMAPPED	0
-#define BSM_MAPPED	1
+#define BSM_MAPPED_PR	1
+#define BSM_MAPPED_SH	2
 
 #define FRM_UNMAPPED	0
 #define FRM_MAPPED	1
-
-#define FR_PAGE		0
-#define FR_TBL		1
-#define FR_DIR		2
+#define FRM_MAPPED_PT	2
 
 #define FIFO		3
 #define GCM		4
 
-#define MAX_ID          9              /* You get 10 mappings, 0 - 9 */
+#define MAX_ID          15              /* You get 10 mappings, 0 - 9 */
 
-#define BACKING_STORE_BASE	0x00600000
-#define BACKING_STORE_UNIT_SIZE 0x00100000
+#define BACKING_STORE_BASE	0x00800000
+#define BACKING_STORE_UNIT_SIZE 0x00080000
+
+#define NBS 16
+
+#define BS_SIZE 128 // in pages
+
+#define INVALID_BSID(ID) ( ((ID) < 0) || ((ID) > MAX_ID) )
+
+#define ERROR_CHECK(X) if(OK != X) { kprintf("Error Calling %s \n",#X ); return SYSERR;}
+#define ERROR_CHECK2(X,P) { if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); return SYSERR;} }
+#define ERROR_CHECK3(X,P,F){ if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); F; return SYSERR;} }
+// 32 - pd_base = 12 hence we shift pd base by 12 bits and write to cr3
+#define SET_PDBR(X) (write_cr3( ((unsigned long)X)<<12))
+
+#define VAD2VPN(X) (((unsigned long)X)>>12)
+#define VPN2VAD(X) (((unsigned long)X)<<12)
+
+#define BSID2PA(ID) (BACKING_STORE_BASE + ((unsigned int)(ID))*BACKING_STORE_UNIT_SIZE)
+
+#endif // __PAGING_H__
+
+

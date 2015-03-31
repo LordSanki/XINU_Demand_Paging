@@ -96,6 +96,11 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
 	*--saddr = 0;		/* %edi */
 	*pushsp = pptr->pesp = (unsigned long)saddr;
 
+  for(i=0; i<NBS; i++){
+    clear_bs_map(&(pptr->bs_map[0]));
+  }
+  pptr->vmemlist.mnext = 0;
+  pptr->vmemlist.mlen = 0;
 	restore(ps);
 
 	return(pid);
@@ -118,3 +123,6 @@ LOCAL int newpid()
 	}
 	return(SYSERR);
 }
+
+
+

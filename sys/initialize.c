@@ -49,6 +49,11 @@ int	console_dev;		/* the console device			*/
 /*  added for the demand paging */
 int page_replace_policy = FIFO;
 
+pt_t *global_page_tables[4];
+
+static int init_global_page_tables();
+static int init_null_proc();
+
 /************************************************************************/
 /***				NOTE:				      ***/
 /***								      ***/
@@ -186,6 +191,7 @@ sysinit()
 	}
 #endif
 
+
 	pptr = &proctab[NULLPROC];	/* initialize null process entry */
 	pptr->pstate = PRCURR;
 	for (j=0; j<7; j++)
@@ -202,6 +208,17 @@ sysinit()
 	pptr->pargs = 0;
 	pptr->pprio = 0;
 	currpid = NULLPROC;
+
+
+  ERROR_CHECK(init_bsm());
+  ERROR_CHECK(init_frm());
+  ERROR_CHECK( init_global_page_tables() );
+  ERROR_CHECK( init_null_proc() );
+  set_evec(14, (unsigned long)pfintr);
+#if 0
+  enable_paging();
+#endif
+
 
 	for (i=0 ; i<NSEM ; i++) {	/* initialize semaphores */
 		(sptr = &semaph[i])->sstate = SFREE;
@@ -264,3 +281,34 @@ long sizmem()
 	}
 	return npages;
 }
+
+static int init_global_page_tables()
+{
+  int i,j;
+  pt_t *pt;
+  for(i=0; i<4; i++){
+    ERROR_CHECK( create_pt(&pt) );
+    for(j=0; j<NPTE; j++){
+      pt[i].pt_pres = 1;
+      pt[i].pt_write = 1;
+      // pages are NBPG addressed
+      // (pt_num*sizeof_page*num_pte + p_num*sizeof_page)/sizeof_page
+      // (i*NPTE*NBPG + j*NBPG)/NBPG
+      pt[i].pt_base = i*NPTE + j;
+    }
+    global_page_tables[i] = pt;
+  }
+  return OK;
+}
+
+static int init_null_proc()
+{
+	struct	pentry	*pptr = &proctab[NULLPROC];
+  pd_t *pd;
+  ERROR_CHECK( create_pd(&pd) );
+  pptr->pdbr = (unsigned int)pd;
+  SET_PDBR(pd);
+  return OK;
+}
+
+

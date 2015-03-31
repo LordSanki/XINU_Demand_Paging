@@ -18,7 +18,7 @@ SYSCALL kill(int pid)
 	STATWORD ps;    
 	struct	pentry	*pptr;		/* points to proc. table for pid*/
 	int	dev;
-
+  int i;
 	disable(ps);
 	if (isbadpid(pid) || (pptr= &proctab[pid])->pstate==PRFREE) {
 		restore(ps);
@@ -56,6 +56,29 @@ SYSCALL kill(int pid)
 						/* fall through	*/
 	default:	pptr->pstate = PRFREE;
 	}
+
+  // releasing all frames held
+  for(i=0; i<NFRAMES; i++){
+    if(frm_tab[i].pid == pid){
+      free_frm(i);
+    }
+  }
+
+  // remove BS mappings
+  for(i=0; i<NBS; i++){
+    if(pptr->bs_map[i].bs_status == BS_MAPPED_SH){
+      if( --bsm_tab[i].ref == 0){
+        free_bsm(i);
+      }
+    }
+    if(pptr->bs_map[i].bs_status == BS_MAPPED_PR){
+        free_bsm(i);
+    }
+  }
+  
+  // removing PD and PT
+  delete_pd(pptr->pdbr);
+
 	restore(ps);
 	return(OK);
 }
