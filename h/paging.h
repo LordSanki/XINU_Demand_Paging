@@ -135,12 +135,14 @@ int create_pt(pt_t **pt);
 #define ERROR_CHECK2(X,P) { if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); return SYSERR;} }
 #define ERROR_CHECK3(X,P,F){ if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); F; return SYSERR;} }
 // 32 - pd_base = 12 hence we shift pd base by 12 bits and write to cr3
-#define SET_PDBR(X) (write_cr3( ((unsigned long)X)<<12))
+#define SET_PDBR(X) (write_cr3((unsigned long)X))
 
 #define VAD2VPN(X) (((unsigned long)X)>>12)
 #define VPN2VAD(X) (((unsigned long)X)<<12)
 
 #define BSID2PA(ID) (BACKING_STORE_BASE + ((unsigned int)(ID))*BACKING_STORE_UNIT_SIZE)
+
+#define DBG(...) 
 
 #endif // __PAGING_H__
 
