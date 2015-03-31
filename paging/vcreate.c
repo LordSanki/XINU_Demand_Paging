@@ -43,8 +43,11 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
   }
   pptr = &proctab[pid];
 
+  //ERROR_CHECK( get_bsm(&bsid) );
   ERROR_CHECK2( get_bsm(&bsid), ps );
+
   
+  //ERROR_CHECK( bsm_map(pid, 4096, bsid, hsize));
   ERROR_CHECK2( bsm_map(pid, 4096, bsid, hsize), ps);
 
   pptr->vmemlist.mnext = (struct mblock*) (4096*NBPG);
@@ -53,7 +56,7 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
   first_block->mlen = hsize*NBPG;
   DBG("Creating Proc %s with pid %d and heap %x at %x\n",proctab[pid].pname, pid, first_block->mlen, (unsigned int)first_block);
   restore(ps);
-  return OK;
+  return pid;
 }
 
 /*------------------------------------------------------------------------

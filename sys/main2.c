@@ -83,7 +83,7 @@ int main() {
 #endif
 #if 1
   kprintf("\n2: vgetmem/vfreemem\n");
-  pid1 = vcreate(proc1_test2, 2000, 100, 20, "proc1_test2", 0, NULL);
+  pid1 = vcreate(proc1_test2, 2000, 90, 20, "proc1_test2", 0, NULL);
   kprintf("pid %d has private heap\n", pid1);
   assert (pid1 != SYSERR);
   resume(pid1);
