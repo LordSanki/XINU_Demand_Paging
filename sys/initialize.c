@@ -288,7 +288,6 @@ static int init_global_page_tables()
   pt_t *pt;
   for(i=0; i<4; i++){
     ERROR_CHECK( create_pt(&pt) );
-    DBG("PT[%d]\n");
     for(j=0; j<NPTE; j++){
       pt[i].pt_pres = 1;
       pt[i].pt_write = 1;
@@ -296,8 +295,9 @@ static int init_global_page_tables()
       // (pt_num*sizeof_page*num_pte + p_num*sizeof_page)/sizeof_page
       // (i*NPTE*NBPG + j*NBPG)/NBPG
       pt[i].pt_base = i*NPTE + j;
-      DBG("\tEntry %d --> %x\n",j,VPN2VAD(pt[i].pt_base));
+      DBG("PT[%d][%d]-->%x | ",i,j,VPN2VAD(pt[i].pt_base));
     }
+    DBG("\n\n")
     global_page_tables[i] = pt;
   }
   return OK;
