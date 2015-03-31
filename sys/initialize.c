@@ -175,6 +175,15 @@ sysinit()
 		proctab[i].pstate = PRFREE;
 
 
+  ERROR_CHECK( init_bsm() );
+  ERROR_CHECK( init_frm() );
+  ERROR_CHECK( init_global_page_tables() );
+  ERROR_CHECK( init_null_proc() );
+  set_evec(14, (unsigned long)pfintr);
+#if 1
+  enable_paging();
+#endif
+
 #ifdef	MEMMARK
 	_mkinit();			/* initialize memory marking */
 #endif
@@ -209,15 +218,6 @@ sysinit()
 	pptr->pprio = 0;
 	currpid = NULLPROC;
 
-
-  ERROR_CHECK( init_bsm() );
-  ERROR_CHECK( init_frm() );
-  ERROR_CHECK( init_global_page_tables() );
-  ERROR_CHECK( init_null_proc() );
-  set_evec(14, (unsigned long)pfintr);
-#if 1
-  enable_paging();
-#endif
 
 
 	for (i=0 ; i<NSEM ; i++) {	/* initialize semaphores */
@@ -295,9 +295,9 @@ static int init_global_page_tables()
       // (pt_num*sizeof_page*num_pte + p_num*sizeof_page)/sizeof_page
       // (i*NPTE*NBPG + j*NBPG)/NBPG
       pt[i].pt_base = i*NPTE + j;
-      DBG("PT[%d][%d]-->%x | ",i,j,VPN2VAD(pt[i].pt_base));
+      //DBG("PT[%d][%d]-->%x | ",i,j,VPN2VAD(pt[i].pt_base));
     }
-    DBG("\n\n");
+    //DBG("\n\n");
     global_page_tables[i] = pt;
   }
   return OK;
