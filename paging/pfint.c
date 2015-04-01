@@ -68,7 +68,7 @@ SYSCALL pfint()
 
     // Copy the page from the backing store into the frame
     ERROR_CHECK3( read_bs((void *)FRAME_ADDR(frmid), bsid, bspage), ps, kill(currpid) );
-    frm_tab[frmid].bsid = bsid;
+    frm_tab[frmid].fr_bsid = bsid;
     // Update the page table
     pt[pvadd->pt_offset].pt_pres  = 1;
     pt[pvadd->pt_offset].pt_write = 1;

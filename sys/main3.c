@@ -294,12 +294,12 @@ void badAccessTest(){
 int main() {
 
 	int pid1;
-	//int pid1;
+	int pid2;
 
 	srpolicy(FIFO);
 	kprintf("Current policy : %d\n",grpolicy());
 
-#if 0
+#if 1
 	kprintf("\n1: shared memory\n");
 	pid1 = create(proc1_test1, 2000, 20, "proc1_test1", 1, "P1");
 	resume(pid1);

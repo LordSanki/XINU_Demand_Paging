@@ -227,7 +227,7 @@ unsigned int findLRU()
   return ((unsigned int)(id-head))/sizeof(fr_map_t);
 }
 
-void wire_back_frames(int pid, int bsid)
+int write_back_frames(int pid, int bsid)
 {
   int i;
   for(i=0; i<NFRAMES; i++)
@@ -239,5 +239,6 @@ void wire_back_frames(int pid, int bsid)
       free_frm(i);      
     }
   }
+  return OK;
 }
 

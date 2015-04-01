@@ -64,7 +64,7 @@ typedef struct{
   int fr_pid;				/* process id using this frame  */
   int fr_vpno;				/* corresponding virtual page no*/
   int fr_refcnt;			/* reference count		*/
-  int bsid;
+  int fr_bsid;
   //int fr_type;				/* FR_DIR, FR_TBL, FR_PAGE	*/
   //int fr_dirty;
   //void *cookie;				/* private data structure	*/
