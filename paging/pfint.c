@@ -47,7 +47,7 @@ SYSCALL pfint()
     // the corresponding page directory entry
     ERROR_CHECK3( create_pt(&pt), ps, kill(currpid) );
     DBG("Creating PT %d at %x\t",pvadd->pd_offset, (unsigned int)pt);
-
+    frm_tab[FRAME_ID(pt)].fr_vpno = VAD2VPN(vadd);
     pd[ pvadd->pd_offset ].pd_pres  = 1;
     pd[ pvadd->pd_offset ].pd_write = 1;
     pd[ pvadd->pd_offset ].pd_base  = VAD2VPN(pt);

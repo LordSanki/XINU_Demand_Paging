@@ -61,10 +61,13 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
   }
 
   pptr->vmemlist.mnext = (struct mblock*) (4096*NBPG);
+  pptr->vhpno = 4096;
+  pptr->vhpnpages = 2;
+  pptr->store = bsid;
   first_block = (struct mblock*)BSID2PA(bsid);
   first_block->mnext = 0;
   first_block->mlen = hsize*NBPG;
-  DBG("Creating Proc %s with pid %d and heap %x at %x\n",proctab[pid].pname, pid, first_block->mlen, (unsigned int)first_block);
+  DBG("Creating Proc %s with pid %d and heap %d bytes at %x\n",proctab[pid].pname, pid, first_block->mlen, (unsigned int)first_block);
   restore(ps);
   return pid;
 }

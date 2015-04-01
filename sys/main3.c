@@ -96,11 +96,12 @@ void proc1_test3(char *msg, int lck) {
 
   return;
 }
+//#define kprintf(...)
 
 void memTest(char *msg, int a, int b, char *string){
 	int i,sum,exp;
 	int *x,*y;
-
+#if 1
 	kprintf("Let's check one allocation\n");
 	x = vgetmem(1);
 	if(x != SYSERR) {
@@ -135,18 +136,18 @@ void memTest(char *msg, int a, int b, char *string){
 
 	kprintf("\nLet's check full allocation.\n");
 	x = vgetmem(2*NBPG);
-	if(x != SYSERR) {
-		kprintf("heap allocated at %x\n", x);
-		for(i=0,sum=0,exp=0; i<(2*NBPG)/4; i++) { x[i] = i; sum+=x[i]; exp+=i; }
-		if(sum != exp) { kprintf("Sum mismatch. Test FAIL\n"); }
-		else kprintf("Initial sum = %d, exp = %d. Test PASS\n",sum,exp);
-		if(vfreemem(x,8193) == SYSERR){
-			vfreemem(x,2*NBPG);
-			kprintf("Doing illegal free check: Test PASS\n");
-		} else {
-			kprintf("Too many data elements freed: Test FAIL\n");
-		}
-	}
+  if(x != SYSERR) {
+    kprintf("heap allocated at %x\n", x);
+    for(i=0,sum=0,exp=0; i<(2*NBPG)/4; i++) { x[i] = i; sum+=x[i]; exp+=i; }
+    if(sum != exp) { kprintf("Sum mismatch. Test FAIL\n"); }
+    else kprintf("Initial sum = %d, exp = %d. Test PASS\n",sum,exp);
+    if(vfreemem(x,8193) == SYSERR){
+      vfreemem(x,2*NBPG);
+      kprintf("Doing illegal free check: Test PASS\n");
+    } else {
+      kprintf("Too many data elements freed: Test FAIL\n");
+    }
+  }
 
 	kprintf("\nLet's ask for extra space. Check for SYSERR\n");
 	x = vgetmem(8193);
@@ -157,7 +158,9 @@ void memTest(char *msg, int a, int b, char *string){
 	} else {
 		kprintf("Warning of Insufficient space should have printed. Test PASS\n");
 	}
-	kprintf("\nMulti arg check: %d %d %s \n",a,b,string);
+
+#endif
+	//kprintf("\nMulti arg check: %d %d %s \n",a,b,string);
 }
 
 void pageLoader(char *msg, u_long vpage){
@@ -279,8 +282,11 @@ void badAccessTest(){
 	x= vgetmem(sizeof(int));
 	*x=123;
 	kprintf("Value @ 0x%08x = %d\n",x,*x);
-	x= (int *) 0x789ABCD;
+	vfreemem(x,sizeof(int));
+	x= vgetmem(sizeof(int));
+	x += 10*NBPG;
 	*x = 432;
+  kprintf("THIS should NOT print. Process Should have been killed\n");
 	vfreemem(x,sizeof(int));
 }
 
@@ -288,7 +294,7 @@ void badAccessTest(){
 int main() {
 
 	int pid1;
-	int pid2;
+	//int pid1;
 
 	srpolicy(FIFO);
 	kprintf("Current policy : %d\n",grpolicy());
@@ -304,7 +310,7 @@ int main() {
 	sleep(10);
 #endif
 
-#if 0
+#if 1
 	kprintf("\n2: vgetmem/vfreemem\n");
 	pid1 = vcreate(memTest, 2000, 2, 20, "memTest", 4,"MT",78,92,"specialMem");
 	kprintf("pid %d has private heap\n", pid1);
@@ -313,7 +319,7 @@ int main() {
 	sleep(3);
 #endif
 
-#if 1
+#if 0
   sleep(10);
 	kprintf("\n3: Heap and Stack Load Test: Many processes with virtual mem, created and destroyed in a loop.\n");
 	pid1 = create(privateHeapLoadTest, 2000, 20, "privateHeapLoadTest", 0,NULL);

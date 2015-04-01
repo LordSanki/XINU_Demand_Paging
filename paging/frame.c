@@ -3,7 +3,7 @@
 #include <kernel.h>
 #include <proc.h>
 #include <paging.h>
-
+#define DBG(...)
 fr_map_t frm_tab[NFRAMES + 4];
 #define FREE_HEAD 1024
 #define FREE_TAIL 1025
@@ -104,19 +104,26 @@ SYSCALL get_frm(int* avail)
 SYSCALL free_frm(int i)
 {
   STATWORD ps;
-  int vadd = VPN2VAD(frm_tab[i].fr_vpno);
-  virt_addr_t *pv = (virt_addr_t*)&(vadd);
-  pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
+  DBG("Freeing %d frame ",i);
   disable(ps);
   if(frm_tab[i].fr_status == FRM_UNMAPPED){
-    //kprintf("Error unmapping frame Frame is not mapped\n");
     restore(ps);
     return OK;
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED){
+    DBG("FRM_MAPPED\n");
+    int vadd = VPN2VAD(frm_tab[i].fr_vpno);
+    virt_addr_t *pv = (virt_addr_t*)&(vadd);
+    pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
+
     pt_t *pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
     int bsid, bspage;
-    ERROR_CHECK2( bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage),ps );
+    if(OK != bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage))
+    {
+      kprintf("Unable to bsm find mapping for frame %d\n", i);
+      restore (ps);
+      return SYSERR;
+    }
     pt[pv->pt_offset].pt_pres = 0;
     if(pt[pv->pt_offset].pt_dirty){
       write_bs((char*)FRAME_ADDR(i), bsid, bspage);
@@ -127,6 +134,10 @@ SYSCALL free_frm(int i)
     }
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED_PT){
+    int vadd = VPN2VAD(frm_tab[i].fr_vpno);
+    virt_addr_t *pv = (virt_addr_t*)&(vadd);
+    pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
+    DBG("FRM_MAPPED_PT Proc %d vpno %x\n", frm_tab[i].fr_pid,frm_tab[i].fr_vpno );
     pd[pv->pd_offset].pd_pres = 0;
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED_PD){
@@ -134,7 +145,9 @@ SYSCALL free_frm(int i)
   frm_tab[i].fr_status = FRM_UNMAPPED;
   qrem(i);
   qpush(FREE_TAIL, i);
+  write_cr3(read_cr3());
   restore(ps);
+  DBG("Frame %d freed\n",i);
   DBG(" Frames %d/%d\n",++free_frm_num, NFRAMES);
   return OK;
 }

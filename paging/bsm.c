@@ -93,7 +93,7 @@ SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth)
     }
   }
   if(INVALID_BSID(bsid)){
-    kprintf("vpno %d of proc %s is not mapped to any bs\n"
+    kprintf("vpno %x of proc %s is not mapped to any bs\n"
         ,vpno, proctab[pid].pname);
     return SYSERR;
   }
@@ -110,7 +110,7 @@ SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth)
 SYSCALL bsm_map(int pid, int vpno, int source, int npages)
 {
   if( proctab[pid].bs_map[source].bs_status != BSM_UNMAPPED ){
-    kprintf("ERROR: (bsm_map) bsid %d already mapped to vpno %d of proc %s \n"
+    kprintf("ERROR: (bsm_map) bsid %d already mapped to vpno %x of proc %s \n"
         , source, proctab[pid].bs_map[source].bs_vpno, proctab[pid].pname);
     return SYSERR;
   }
@@ -137,8 +137,6 @@ SYSCALL bsm_map(int pid, int vpno, int source, int npages)
   proctab[pid].bs_map[source].bs_vpno = vpno;
   return OK;
 }
-
-
 
 /*-------------------------------------------------------------------------
  * bsm_unmap - delete an mapping from bsm_tab

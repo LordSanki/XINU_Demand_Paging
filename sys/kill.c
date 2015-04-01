@@ -58,7 +58,7 @@ SYSCALL kill(int pid)
   DBG("BS released\n");
   // removing PD and PT
   delete_pd((pd_t*)pptr->pdbr);
-  DBG("PD deleted\n");
+  //DBG("PD deleted\n");
 
 	switch (pptr->pstate) {
 
