@@ -93,8 +93,8 @@ SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth)
     }
   }
   if(INVALID_BSID(bsid)){
-    kprintf("vpno %x of proc %s is not mapped to any bs\n"
-        ,vpno, proctab[pid].pname);
+    //kprintf("vpno %x of proc %s is not mapped to any bs\n"
+     //   ,vpno, proctab[pid].pname);
     return SYSERR;
   }
   *store = bsid;

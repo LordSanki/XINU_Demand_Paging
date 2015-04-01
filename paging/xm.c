@@ -44,7 +44,7 @@ SYSCALL xmunmap(int virtpage )
     kprintf("xmummap call error: virtpage (%d) invalid! \n", virtpage);
     return SYSERR;
   }
-  if(OK == bsm_lookup(currpid, virtpage, &bsid, &page)){
+  if(OK == bsm_lookup(currpid, VPN2VAD(virtpage), &bsid, &page)){
     write_back_frames(currpid, bsid);
   }
   ERROR_CHECK2( bsm_unmap(currpid, virtpage), ps);

@@ -170,4 +170,6 @@ DEVCALL read(int descrp, void *buf, int count);
 DEVCALL seek(int descrp, long pos);
 DEVCALL write(int descrp, void *buf, int count);
 
+void print_PA(unsigned int addr);
+
 #endif

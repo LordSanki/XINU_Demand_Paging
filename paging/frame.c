@@ -73,9 +73,15 @@ SYSCALL get_frm(int* avail)
       free_frm(*avail);
     }
     else{
-      *avail = findLRU();
-      qrem(*avail);
-      kprintf("OUT of MEM PANIC!!\n");
+      do{
+        if(Q_EMPTY(FIFO_HEAD)){
+          kprintf("Out of memory\n");
+          return SYSERR;
+        }
+        *avail = findLRU();
+        qrem(*avail);
+      }while(frm_tab[*avail].fr_status != FRM_MAPPED);
+      free_frm(*avail);
     }
   }
   else{
@@ -91,9 +97,11 @@ SYSCALL get_frm(int* avail)
   frm_tab[(*avail)].fr_vpno = 0;
   frm_tab[(*avail)].fr_loadtime = 0;
   frm_tab[(*avail)].fr_refcnt = 0;
+  qrem(*avail);
   qpush(FIFO_TAIL, (*avail));
   restore(ps);
   DBG(" Frames %d/%d\n",--free_frm_num, NFRAMES);
+  //kprintf(" --Frames %d -->%d\n",--free_frm_num, *avail);
   return OK;
 }
 
@@ -120,7 +128,7 @@ SYSCALL free_frm(int i)
     int bsid, bspage;
     if(OK != bsm_lookup(frm_tab[i].fr_pid, VPN2VAD(frm_tab[i].fr_vpno), &bsid, &bspage))
     {
-      kprintf("Unable to bsm find mapping for frame %d\n", i);
+      //kprintf("Unable to bsm find mapping for frame %d\n", i);
       restore (ps);
       return SYSERR;
     }
@@ -149,6 +157,7 @@ SYSCALL free_frm(int i)
   restore(ps);
   DBG("Frame %d freed\n",i);
   DBG(" Frames %d/%d\n",++free_frm_num, NFRAMES);
+  //kprintf("++Frames %d -->%d\n",++free_frm_num, i);
   return OK;
 }
 
@@ -197,7 +206,7 @@ void updateLRU()
   while(next != tail){
     if(next->fr_status == FRM_MAPPED){
       vadd = VPN2VAD(next->fr_vpno);
-      pv = (virt_addr_t*)vadd;
+      pv = (virt_addr_t*)&vadd;
       pd = (pd_t*)proctab[next->fr_pid].pdbr;
       pt = VPN2VAD(pd[pv->pd_offset].pd_base);
       if(pt[pv->pt_offset].pt_acc == 1){
@@ -215,16 +224,28 @@ unsigned int findLRU()
   fr_map_t *head = &frm_tab[FIFO_HEAD];
   fr_map_t *tail = &frm_tab[FIFO_TAIL];
   fr_map_t *next = &frm_tab[head->q.next];
+  int frmid;
   if(next == tail) return 1023;
-  id = next;
+  id = head;
+  id->fr_loadtime = (unsigned int)-1;
   while(next != tail){
     if(next->fr_status == FRM_MAPPED){
-      if(id->fr_loadtime > next->fr_loadtime)
-        id = next;
+      if(id->fr_loadtime >= next->fr_loadtime){
+        if( (id->fr_loadtime == next->fr_loadtime) ){
+          if (next > id)
+            id = next;
+        }
+        else{
+          id = next;
+        }
+      }
     }
+    next = &frm_tab[next->q.next];
   }
   head = &frm_tab[0];
-  return ((unsigned int)(id-head))/sizeof(fr_map_t);
+  frmid = ((unsigned int)id - (unsigned int)head);
+  frmid /= sizeof(fr_map_t);
+  return frmid;
 }
 
 int write_back_frames(int pid, int bsid)

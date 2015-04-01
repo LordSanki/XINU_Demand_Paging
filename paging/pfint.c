@@ -9,6 +9,7 @@
  * pfint - paging fault ISR
  *-------------------------------------------------------------------------
  */
+//#define DBG kprintf
 extern int page_replace_policy; 
 void self_test(int vadd, int pid);
 SYSCALL pfint()
@@ -26,7 +27,6 @@ SYSCALL pfint()
 
  // char *addr = (char*)0x00800000;
  // *addr = 'A';
-
   pptr = &(proctab[currpid]);
 
   vadd = read_cr2();
@@ -37,7 +37,12 @@ SYSCALL pfint()
     updateLRU();
   }
 
-  ERROR_CHECK3( bsm_lookup(currpid, vadd, &bsid, &bspage), ps, kill(currpid));
+  if( OK != bsm_lookup(currpid, vadd, &bsid, &bspage) ){
+    kprintf("Illegal Accecc at %x by Proc %s(%d) vpno %x\n",vadd, proctab[currpid].pname, currpid, VAD2VPN(vadd));
+    restore(ps);
+    kill(currpid);
+    return SYSERR;
+  }
 
   pd = (pd_t*)pptr->pdbr;
   DBG("PD at %x PDE %d\t",(unsigned int)pd,pvadd->pd_offset );

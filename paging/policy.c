@@ -100,4 +100,30 @@ int delete_pt(pt_t *pt)
   return OK;
 }
 
+void print_PA(unsigned int addr)
+{
+  int vadd = addr;
+  virt_addr_t * pv;
+  pd_t *pd;
+  pt_t *pt;
 
+  pv = (virt_addr_t*)&vadd;
+  pd = (pd_t*)proctab[currpid].pdbr;
+  pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
+  kprintf("VPN %x PD %x PDE %d PT %x PTE %d Addr %x\n", 
+      VAD2VPN(addr), (unsigned int)pd, pv->pd_offset,
+      (unsigned int)pt, pv->pt_offset, VPN2VAD(pt[pv->pt_offset].pt_base)+pv->pg_offset);
+}
+
+int get_PA(unsigned int addr)
+{
+  int vadd = addr;
+  virt_addr_t * pv;
+  pd_t *pd;
+  pt_t *pt;
+
+  pv = (virt_addr_t*)&vadd;
+  pd = (pd_t*)proctab[currpid].pdbr;
+  pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
+  return VPN2VAD(pt[pv->pt_offset].pt_base)+pv->pg_offset; 
+}

@@ -11,6 +11,107 @@
 #define PROC2_VPNO      0x80000
 #define TEST1_BS        1
 #define ASSERT(X) {if((X)==0)kprintf("Assertion failed %s\n",#X);}
+
+void fifo_test()
+{
+  // 7 frames allocated before this
+  int i,j,k;
+  int vpno = 8192;
+  int frames = 7;
+  frames++;
+  for(i=0; i<8; i++){
+    char *c = (char *)((vpno+(i*128))*NBPG);
+    get_bs(i,128);
+    xmmap(VAD2VPN(c), i, 128);
+    // 1 frame for PT every 8 cycles
+    for(j=0; j<128; j++){
+      frames++;
+      // 128 frames for data
+      c[j*NBPG] = 'A'+i;
+    }
+
+    if(i == 7){
+      for(j=8; j<16; j++){
+        char * b = (char*)((1024 +j)*NBPG);
+        if(b[0] != 'H'){
+          kprintf("Test Failed expected H got %c at frame %d\n", b[0], j);
+          break;
+        }
+      }
+      if(j == 16)
+        kprintf("Test Passed \n");
+    }
+  }
+  sleep(2);
+  for(i=0; i<8; i++){
+    xmunmap( vpno+ (i*128) );
+    release_bs(i);
+  }
+}
+
+void lru_test()
+{
+  // 7 frames allocated before this
+  int i,j,k;
+  int vpno = 8192;
+  int frames = 7;
+  frames++;
+  for(i=0; i<8; i++){
+    char *c = (char *)((vpno+(i*128))*NBPG);
+    get_bs(i,128);
+    xmmap(VAD2VPN(c), i, 128);
+    // 1 frame for PT every 8 cycles
+    for(j=0; j<128; j++){
+      frames++;
+      // 128 frames for data
+      if(frames == 1000)
+      {
+        *((char*)(vpno*NBPG)) = 'R';
+      }
+      if(frames >1024)
+      {
+        c[j*NBPG] = 'B';
+      }
+      else{
+        c[j*NBPG] = 'A';
+      }
+    }
+
+    if(i == 7){
+      int res = 1;
+      for(j=9; j<17; j++){
+        char * b = (char*)((1024 +j)*NBPG);
+        if(b[0] != 'B'){
+          kprintf("Test Failed expected B got %c at frame %d\n", b[0], j);
+          res = 0;
+          break;
+        }
+      }
+      {
+        char * b = (char*)((1024 +8)*NBPG);
+        if(b[0] != 'R'){
+          kprintf("Test Failed expected R got %c at frame %d\n", b[0], 8);
+          res = 0;
+        }
+      }
+      {
+        char * b = (char*)((1024 +17)*NBPG);
+        if(b[0] != 'A'){
+          kprintf("Test Failed expected A got %c at frame %d\n", b[0], 17);
+          res = 0;
+        }
+      }
+
+      if(res == 1)
+        kprintf("Test Passed \n");
+    }
+  }
+  sleep(10);
+  for(i=0; i<8; i++){
+    xmunmap( vpno+ (i*128) );
+    release_bs(i);
+  }
+}
 void proc1_test1(char *msg ) {
   char *addr;
   int i;
@@ -222,21 +323,53 @@ void privateHeapLoadTest(){
 void peakLoadTest(int pIdx){
 	char *x,*y;
 	int i,mypno,m;
-	x = vgetmem(128*NBPG);
-	mypno = PEAK_VPNO - pIdx;
 	get_bs(15,128);
+	mypno = PEAK_VPNO - pIdx;
+	//kprintf("get_bs DOne pIdx=%d currpid=%d\n",pIdx,currpid);
+	x = vgetmem(128*NBPG);
+	//kprintf("vgetmem DOne pIdx=%d currpid=%d x=%x-%x\n",pIdx,currpid, x, x+128*NBPG);
 	xmmap(mypno,15,128);
+	//kprintf("xmmap DOne pIdx=%d currpid=%d\n",pIdx,currpid);
+#if 1
 	for(i=0; i<128; i++) {
 		x[i] = (char) (pIdx + i);
+    //print_PA(x);
 		x[i+NBPG-1] = (char) (pIdx*2 +i);
+#if 0
+    i++;
+    x[i] = (char) (pIdx + i);
+		x[i+NBPG-1] = (char) (pIdx*2 +i);
+    i++;
+    x[i] = (char) (pIdx + i);
+		x[i+NBPG-1] = (char) (pIdx*2 +i);
+    i++;
+    x[i] = (char) (pIdx + i);
+		x[i+NBPG-1] = (char) (pIdx*2 +i);
+
+    i++;
+    x[i] = (char) (pIdx + i);
+		x[i+NBPG-1] = (char) (pIdx*2 +i);
+    //print_PA(x+i);
+#endif
+
+    //sleep(20);
+    //kprintf(" writing to %x %x\n", (unsigned int)&x[i], (unsigned int)&x[i+NBPG-1]);
 		if(i%15 == pIdx && i!=127) {
 			*(char *)( (mypno + i)*NBPG ) = (char) (pIdx+3);
 			*(char *)( (mypno + i)*NBPG + NBPG -1) = (char) (pIdx+4);
 		}
 	}
+#endif
+	kprintf("Writing DOne pIdx=%d currpid=%d\n",pIdx,currpid);
 	xmunmap(mypno);
+	//kprintf("Unmap DOne pIdx=%d currpid=%d\n",pIdx,currpid);
+	sleep(20);
+	//kprintf("Wake DOne pIdx=%d currpid=%d\n",pIdx,currpid);
+	mypno--;
+	xmmap(mypno,15,128);
+#if 1
 
-	kprintf("Writing part of test done Now will remap to new address and test. pIdx=%d currpid=%d\n",pIdx,currpid);
+	xmunmap(mypno);
 	sleep(20);
 	mypno--;
 	xmmap(mypno,15,128);
@@ -253,8 +386,9 @@ void peakLoadTest(int pIdx){
 	i = NBPG*128 -1;
 	if( y[i] != 'L' ) kprintf("pIdx=%d mypno=%x Test Fail. y[0x%08x]=%d (@ 0x%08x )is not L (%d) \n", pIdx,mypno,i,y[i],&y[i],'L');
 	kprintf("peakLoadTest pIdx=%d finished. If no errors have been printed yet, it is a pass.\n",pIdx);
-	vfreemem(x,128*NBPG);
+#endif
 	xmunmap(mypno);
+	vfreemem(x,128*NBPG);
 	sleep(10);
 	release_bs(15);
 }
@@ -271,10 +405,13 @@ void peakLoadTestLaunch(){
 			kprintf("Unable to launch virtual mem process. Test FAIL\n");
 		}
 		resume(pid[i]);
+    //sleep(1);
 	}
 	xmunmap(0xFFF80);
-	sleep(10);
+	sleep(100);
+  kprintf("Wake Launch\n");
 	release_bs(15);
+  kprintf("Exit Launch\n");
 }
 
 void badAccessTest(){
@@ -297,20 +434,18 @@ int main() {
 	int pid2;
 
 	srpolicy(FIFO);
-	kprintf("Current policy : %d\n",grpolicy());
 
-#if 1
+#if 0
 	kprintf("\n1: shared memory\n");
 	pid1 = create(proc1_test1, 2000, 20, "proc1_test1", 1, "P1");
 	resume(pid1);
 	sleep(10);
-  kprintf("Main Waking\n");
 	pid2 = create(proc2_test1, 2000, 20, "proc2_test1", 4, "P2",63,56,"special");
 	resume(pid2);
 	sleep(10);
 #endif
 
-#if 1
+#if 0
 	kprintf("\n2: vgetmem/vfreemem\n");
 	pid1 = vcreate(memTest, 2000, 2, 20, "memTest", 4,"MT",78,92,"specialMem");
 	kprintf("pid %d has private heap\n", pid1);
@@ -326,6 +461,23 @@ int main() {
 	if(pid1 == SYSERR) { kprintf("Cannot create process. Test launch FAIL.\n"); }
 	resume(pid1);
 	sleep(3);
+#endif
+
+#if 0
+	kprintf("\n4:FIFO test.\n");
+	srpolicy(FIFO);
+	pid1 = create(fifo_test, 2000, 20, "fifo", 0, NULL);
+  resume(pid1);
+  sleep(20);
+#endif
+
+#if 1
+	kprintf("\n4:LRU test.\n");
+	srpolicy(LRU);
+	kprintf("Current policy : %d\n",grpolicy());
+	pid1 = create(lru_test, 2000, 20, "lru", 0, NULL);
+  resume(pid1);
+  sleep(10);
 #endif
 
 #if 0
@@ -347,7 +499,8 @@ int main() {
 	pid1 = create(peakLoadTestLaunch, 2000, 20, "peakLoadTestLaunch", 0,NULL);
 	if(pid1 == SYSERR) { kprintf("Cannot create process. Test launch FAIL.\n"); }
 	resume(pid1);
-	sleep(60);
+	sleep(6000);
 #endif
+  kprintf("=====================Main End============\n");
   return 0;
 }

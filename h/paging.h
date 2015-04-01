@@ -133,9 +133,10 @@ int create_pt(pt_t **pt);
 
 #define INVALID_BSID(ID) ( ((ID) < 0) || ((ID) > MAX_ID) )
 
-#define ERROR_CHECK(X) if(OK != X) { kprintf("Error Calling %s \n",#X ); return SYSERR;}
-#define ERROR_CHECK2(X,P) { if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); return SYSERR;} }
-#define ERROR_CHECK3(X,P,F){ if(OK != X) { kprintf("Error Calling %s \n",#X ); restore(P); F; return SYSERR;} }
+#define ERROR_CHECK(X) if(OK != X) { kprintf("Error Calling %s %s\n",#X,__FUNCTION__ ); return SYSERR;}
+#define ERROR_CHECK2(X,P) { if(OK != X) { kprintf("Error Calling %s %s\n",#X, __FUNCTION__ ); restore(P); return SYSERR;} }
+#define ERROR_CHECK3(X,P,F){ if(OK != X) { kprintf("Error Calling %s %s\n",#X, __FUNCTION__ ); restore(P); F; return SYSERR;} }
+#define ERROR_CHECK4(X,P,F,I){ if(OK != X) { kprintf("Error Calling %s %s %d\n",#X, __FUNCTION__,I ); restore(P); F; return SYSERR;} }
 // 32 - pd_base = 12 hence we shift pd base by 12 bits and write to cr3
 #define SET_PDBR(X) (write_cr3((unsigned long)X))
 

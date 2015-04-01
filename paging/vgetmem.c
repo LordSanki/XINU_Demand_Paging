@@ -5,7 +5,7 @@
 #include <mem.h>
 #include <proc.h>
 #include <paging.h>
-#define DBG(...)
+//#define DBG kprintf
 extern struct pentry proctab[];
 /*------------------------------------------------------------------------
  * vgetmem  --  allocate virtual heap storage, returning lowest WORD address
@@ -23,17 +23,19 @@ WORD	*vgetmem(nbytes)
   if (nbytes == 0)
     return (WORD*)SYSERR;
 
-  disable(ps);
+  //disable(ps);
   pptr = &proctab[currpid];
   if (pptr->vmemlist.mnext == NULL) {
-    restore(ps);
+    //restore(ps);
     return (WORD*)SYSERR;
   }
   nbytes = (unsigned int) roundmb(nbytes);
-  DBG("Trying to allocate %d bytes\n",nbytes);
+  //DBG("Trying to allocate %d bytes\n",nbytes);
   q = &(pptr->vmemlist);
   p = q->mnext;
-  DBG("FIrst block is at %x of size %d\n",(unsigned int)p, p->mlen);
+  rem = (struct mblock*)0x880000;
+  DBG("FIrst block is at %x of size %d | %d\n",(unsigned int)p, p->mlen, rem->mlen);
+  //print_PA((unsigned int)p);
   while(p != 0)
   {
       if (p->mlen == nbytes) {
@@ -52,7 +54,7 @@ WORD	*vgetmem(nbytes)
       p=p->mnext;
   }
 
-  restore(ps);
+  //restore(ps);
   kprintf("ERROR: (vgetmem) out of memory\n");
   return (WORD*)SYSERR;
 }
