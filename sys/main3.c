@@ -10,7 +10,7 @@
 #define PROC2_VADDR     0x80000000
 #define PROC2_VPNO      0x80000
 #define TEST1_BS        1
-
+#define ASSERT(X) {if((X)==0)kprintf("Assertion failed %s\n",#X);}
 void proc1_test1(char *msg ) {
   char *addr;
   int i;
@@ -286,12 +286,13 @@ int main() {
 	int pid1;
 	int pid2;
 
-	srpolicy(LRU);
+	srpolicy(FIFO);
 	kprintf("Current policy : %d\n",grpolicy());
 	kprintf("\n1: shared memory\n");
 	pid1 = create(proc1_test1, 2000, 20, "proc1_test1", 1, "P1");
 	resume(pid1);
 	sleep(10);
+  kprintf("Main Waking\n");
 	pid2 = create(proc2_test1, 2000, 20, "proc2_test1", 4, "P2",63,56,"special");
 	resume(pid2);
 	sleep(10);

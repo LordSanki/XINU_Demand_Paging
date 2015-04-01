@@ -16,7 +16,7 @@ void qpush(int tail, int n);
 void qrem(int n);
 int qpop(int head);
 extern int page_replace_policy;
-
+static int free_frm_num = NFRAMES;
 unsigned int findLRU();
 void updateLRU();
 /*-------------------------------------------------------------------------
@@ -93,6 +93,7 @@ SYSCALL get_frm(int* avail)
   frm_tab[(*avail)].fr_refcnt = 0;
   qpush(FIFO_TAIL, (*avail));
   restore(ps);
+  DBG(" Frames %d/%d\n",--free_frm_num, NFRAMES);
   return OK;
 }
 
@@ -134,6 +135,7 @@ SYSCALL free_frm(int i)
   qrem(i);
   qpush(FREE_TAIL, i);
   restore(ps);
+  DBG(" Frames %d/%d\n",--free_frm_num, NFRAMES);
   return OK;
 }
 

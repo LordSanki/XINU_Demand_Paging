@@ -40,13 +40,13 @@ SYSCALL pfint()
   ERROR_CHECK3( bsm_lookup(currpid, vadd, &bsid, &bspage), ps, kill(currpid));
 
   pd = (pd_t*)pptr->pdbr;
-  DBG("PD at %x\n",(unsigned int)pd);
+  DBG("PD at %x PDE %d\t",(unsigned int)pd,pvadd->pd_offset );
   // If the Page Table does not exist create it.
   if(pd[ pvadd->pd_offset ].pd_pres != 1){
     // Create a new page table and fill in its properties in
     // the corresponding page directory entry
     ERROR_CHECK3( create_pt(&pt), ps, kill(currpid) );
-    DBG("Creating PT %d at %x\n",pvadd->pd_offset, (unsigned int)pt);
+    DBG("Creating PT %d at %x\t",pvadd->pd_offset, (unsigned int)pt);
 
     pd[ pvadd->pd_offset ].pd_pres  = 1;
     pd[ pvadd->pd_offset ].pd_write = 1;
@@ -56,13 +56,13 @@ SYSCALL pfint()
     pt = VPN2VAD(pd[ pvadd->pd_offset ].pd_base);
   }
   
-  DBG("PT at %x\n",(unsigned int)pt);
+  DBG("PT at %x PTE %d \t",(unsigned int)pt,pvadd->pt_offset);
   if(pt[pvadd->pt_offset].pt_pres != 1) {
     // Check to see if the page from the backing store is already in 
     // physical memory (a frame). If not we will have to allocate a 
     // new frame and bring the data in from disk (backing store).
     ERROR_CHECK3( get_frm(&frmid), ps, kill(currpid) );
-    DBG("Mapping FRM %d(%x) to VPN %x\n", frmid, FRAME_ADDR(frmid), VAD2VPN(vadd));
+    DBG("Mapping FRM %d(%x) to VPN %x\t", frmid, FRAME_ADDR(frmid), VAD2VPN(vadd));
     frm_tab[frmid].fr_vpno = VAD2VPN(vadd);
     frm_tab[FRAME_ID(pt)].fr_refcnt++;
 
@@ -74,6 +74,7 @@ SYSCALL pfint()
     pt[pvadd->pt_offset].pt_write = 1;
     pt[pvadd->pt_offset].pt_base  = VAD2VPN(FRAME_ADDR(frmid));
   }
+  DBG("\n");
   // reset TLB
   write_cr3(pptr->pdbr);
   //self_test(vadd, currpid);

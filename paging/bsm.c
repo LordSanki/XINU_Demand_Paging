@@ -68,18 +68,18 @@ SYSCALL bsm_lookup(int pid, long vaddr, int* store, int* pageth)
   int bsid;
   int vpno = VAD2VPN(vaddr);
   int start, stop;
-  DBG("Looking up vpno %x\n",vpno);
+  DBG("Looking up vpno %x\t",vpno);
   bs_map_t *bs_map = &(proctab[pid].bs_map[0]);
   for(bsid=0; bsid<NBS; bsid++){
     if(bs_map[bsid].bs_status != BSM_UNMAPPED){
       start = bs_map[bsid].bs_vpno;
       stop = bs_map[bsid].bs_vpno + bs_map[bsid].bs_npages;
-      DBG("BSID %d mapped %x-%x\n",bsid,start,stop);
+      //DBG("BSID %d mapped %x-%x\n",bsid,start,stop);
       if (vpno >= start && vpno < stop)
         break;
     }
     else{
-      DBG("BSID %d unmapped\n",bsid);
+      //DBG("BSID %d unmapped\n",bsid);
     }
   }
   if(INVALID_BSID(bsid)){
