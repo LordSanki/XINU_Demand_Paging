@@ -193,13 +193,17 @@ void policyTest(){
 	resume(pid2);
 }
 
-int simpleRecursion(int i) {
-	if(i==0) return 1;
-	else return i * simpleRecursion(i-1);
+void simpleRecursion(int i) {
+  int j;
+  for(j=0; j<i*10000; j++);
+//	if(i==0) return 1;
+//	else return i * simpleRecursion(i-1);
+  kprintf("done %d\n",currpid);
 }
+
 void privateHeapLoadTest(){
 	int i,pid;
-	for(i=0; i<60;i++) {
+	for(i=1; i<40;i++) {
 		while(SYSERR == (pid = vcreate(simpleRecursion, 2000, 2, 20, "simpleRec", 1,i)) ) {
 			kprintf("Failed to create process at i=%d. Waiting for 10 more sleep cycles..\n",i);
 			sleep(10);
@@ -288,6 +292,8 @@ int main() {
 
 	srpolicy(FIFO);
 	kprintf("Current policy : %d\n",grpolicy());
+
+#if 0
 	kprintf("\n1: shared memory\n");
 	pid1 = create(proc1_test1, 2000, 20, "proc1_test1", 1, "P1");
 	resume(pid1);
@@ -296,30 +302,27 @@ int main() {
 	pid2 = create(proc2_test1, 2000, 20, "proc2_test1", 4, "P2",63,56,"special");
 	resume(pid2);
 	sleep(10);
+#endif
 
+#if 0
 	kprintf("\n2: vgetmem/vfreemem\n");
 	pid1 = vcreate(memTest, 2000, 2, 20, "memTest", 4,"MT",78,92,"specialMem");
 	kprintf("pid %d has private heap\n", pid1);
 	ASSERT(pid1 != SYSERR);
 	resume(pid1);
 	sleep(3);
-//
-//	//  sleep(10);
-//	kprintf("\n3: Policy Test: Two process which access 100 pages each, sleeping in each iteration.\n");
-//	pid1 = vcreate(policyTest, 2000, 2, 20, "policyTest", 0,NULL);
-//	kprintf("pid %d has private heap\n", pid1);
-//	ASSERT(pid1 != SYSERR);
-//	resume(pid1);
-//	sleep(3);
+#endif
 
-	  sleep(10);
+#if 1
+  sleep(10);
 	kprintf("\n3: Heap and Stack Load Test: Many processes with virtual mem, created and destroyed in a loop.\n");
 	pid1 = create(privateHeapLoadTest, 2000, 20, "privateHeapLoadTest", 0,NULL);
 	if(pid1 == SYSERR) { kprintf("Cannot create process. Test launch FAIL.\n"); }
 	resume(pid1);
 	sleep(3);
+#endif
 
-
+#if 0
 	kprintf("\n4: Illegal Address Access Test. These 2 processes should get killed.\n");
 	pid1 = vcreate(badAccessTest, 2000, 50, 20, "badAccessTest", 0,NULL);
 	pid2 = vcreate(badAccessTest, 2000, 50, 20, "badAccessTest", 0,NULL);
@@ -330,21 +333,15 @@ int main() {
 	resume(pid2);
 	sleep(3);
 	kprintf("\n6: Test Done. Both the processes should have been killed now.\n");
-//	sleep(10);
-
 	sleep(60);
-//	bsm_printAllMapped(currpid); printAllMappedFrames();
+#endif
 
+#if 0
 	kprintf("\n5: Peak Load Test: All backing stores fully mapped with first and last byte of every page written and tested. BS-15 shared amongst all process.\n");
 	pid1 = create(peakLoadTestLaunch, 2000, 20, "peakLoadTestLaunch", 0,NULL);
 	if(pid1 == SYSERR) { kprintf("Cannot create process. Test launch FAIL.\n"); }
 	resume(pid1);
-
 	sleep(60);
-//	bsm_printAllMapped(currpid); printAllMappedFrames();
-
-	//	//  kprintf("\n4: Frame test\n");
-	//	//  pid1 = create(proc1_test3, 2000, 20, "proc1_test3", 0, NULL);
-	//	//  resume(pid1);
-	//	//  sleep(3);
+#endif
+  return 0;
 }

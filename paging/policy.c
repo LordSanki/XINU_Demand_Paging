@@ -33,7 +33,7 @@ SYSCALL grpolicy()
 
 int create_pd(pd_t **pd)
 {
-  create_pd_pid(pd, currpid);
+  return create_pd_pid(pd, currpid);
 }
 
 int create_pd_pid(pd_t **pd, int pid)
@@ -63,12 +63,17 @@ int create_pd_pid(pd_t **pd, int pid)
 int delete_pd(pd_t *pd)
 {
   int i;
-  for(i=0; i<NPTE; i++){
+  STATWORD ps;
+  disable(ps);
+  int ret = OK;
+  for(i=4; i<NPTE; i++){
     if(pd[i].pd_pres){
-      ERROR_CHECK( delete_pt( (pt_t*)(VPN2VAD(pd[i].pd_base)) ) );
+      if(OK == delete_pt( (pt_t*)(VPN2VAD(pd[i].pd_base)) ))
+        pd[i].pd_pres = 0;
     }
   }
-  ERROR_CHECK( free_frm(FRAME_ID(pd)) );
+  ERROR_CHECK2( free_frm(FRAME_ID(pd)), ps );
+  restore(ps);
   return OK;
 }
 

@@ -44,6 +44,10 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
 		restore(ps);
 		return(SYSERR);
 	}
+  if( OK != create_pd_pid(&pd, pid)){
+    restore(ps);
+    return SYSERR;
+  }
 
 	numproc++;
 	pptr = &proctab[pid];
@@ -97,12 +101,12 @@ SYSCALL create(procaddr,ssize,priority,name,nargs,args)
 	*--saddr = 0;		/* %edi */
 	*pushsp = pptr->pesp = (unsigned long)saddr;
 
-  for(i=0; i<NBS; i++){
-    clear_bs_map(&(pptr->bs_map[0]));
-  }
+//  for(i=0; i<NBS; i++){
+    //clear_bs_map(&(pptr->bs_map[0]));
+//  }
+  bzero(&(pptr->bs_map[0]), sizeof(bs_map_t)*NBS);
   pptr->vmemlist.mnext = 0;
   pptr->vmemlist.mlen = 0;
-  ERROR_CHECK3(create_pd_pid(&pd, pid), ps, kill(pid));
   pptr->pdbr = (unsigned int)pd;
 	restore(ps);
 

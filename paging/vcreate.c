@@ -44,11 +44,21 @@ SYSCALL vcreate(procaddr,ssize,hsize,priority,name,nargs,args)
   pptr = &proctab[pid];
 
   //ERROR_CHECK( get_bsm(&bsid) );
-  ERROR_CHECK2( get_bsm(&bsid), ps );
+  if( OK != get_bsm(&bsid)){
+    DBG("Unable to get bsm for %d killing it\n", pid);
+    kill(pid);
+    restore(ps);
+    return SYSERR;
+  }
 
   
   //ERROR_CHECK( bsm_map(pid, 4096, bsid, hsize));
-  ERROR_CHECK2( bsm_map(pid, 4096, bsid, hsize), ps);
+  if( OK != bsm_map(pid, 4096, bsid, hsize)){
+    DBG("Unable to get bsm for %d killing it\n", pid);
+    kill(pid);
+    restore(ps);
+    return SYSERR;
+  }
 
   pptr->vmemlist.mnext = (struct mblock*) (4096*NBPG);
   first_block = (struct mblock*)BSID2PA(bsid);

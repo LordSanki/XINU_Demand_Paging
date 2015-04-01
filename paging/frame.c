@@ -109,9 +109,9 @@ SYSCALL free_frm(int i)
   pd_t *pd = (pd_t*)(proctab[frm_tab[i].fr_pid].pdbr);
   disable(ps);
   if(frm_tab[i].fr_status == FRM_UNMAPPED){
-    kprintf("Error unmapping frame Frame is not mapped\n");
+    //kprintf("Error unmapping frame Frame is not mapped\n");
     restore(ps);
-    return SYSERR;
+    return OK;
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED){
     pt_t *pt = (pt_t*)VPN2VAD(pd[pv->pd_offset].pd_base);
@@ -124,7 +124,6 @@ SYSCALL free_frm(int i)
     }
     if(--(frm_tab[FRAME_ID(pt)].fr_refcnt) == 0){
       free_frm(FRAME_ID(pt));
-      //pd[pv->pd_offset].pd_pres = 0;
     }
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED_PT){
@@ -132,10 +131,11 @@ SYSCALL free_frm(int i)
   }
   else if(frm_tab[i].fr_status == FRM_MAPPED_PD){
   }
+  frm_tab[i].fr_status = FRM_UNMAPPED;
   qrem(i);
   qpush(FREE_TAIL, i);
   restore(ps);
-  DBG(" Frames %d/%d\n",--free_frm_num, NFRAMES);
+  DBG(" Frames %d/%d\n",++free_frm_num, NFRAMES);
   return OK;
 }
 
@@ -213,8 +213,5 @@ unsigned int findLRU()
   head = &frm_tab[0];
   return ((unsigned int)(id-head))/sizeof(fr_map_t);
 }
-
-
-
 
 

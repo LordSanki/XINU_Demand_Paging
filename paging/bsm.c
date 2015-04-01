@@ -6,7 +6,7 @@
 #include <proc.h>
 
 bs_map_t bsm_tab[NBS];
-
+static int fre_bsm_num = 0;
 /*-------------------------------------------------------------------------
  * init_bsm- initialize bsm_tab
  *-------------------------------------------------------------------------
@@ -15,7 +15,7 @@ SYSCALL init_bsm()
 {
   int i;
   for(i=0; i<NBS; i++){
-    free_bsm(i);
+    clear_bs_map(&bsm_tab[i]);
   }
   return OK;
 }
@@ -37,6 +37,7 @@ SYSCALL get_bsm(int* avail)
     return SYSERR;
   }
   *avail = i;
+  DBG("BSM %d/%d\n",--fre_bsm_num, NBS);
   return OK;
 }
 
@@ -47,7 +48,15 @@ SYSCALL get_bsm(int* avail)
  */
 SYSCALL free_bsm(int i)
 {
-  clear_bs_map(&(bsm_tab[i]));
+  if(bsm_tab[i].bs_status == BSM_MAPPED_PR)
+  {
+    clear_bs_map(&(bsm_tab[i]));
+  }
+  else if(bsm_tab[i].bs_status == BSM_MAPPED_SH)
+  {
+    if( (--bsm_tab[i].bs_ref) == 0)
+      clear_bs_map(&(bsm_tab[i]));
+  }
   return OK;
 }
 
@@ -57,6 +66,7 @@ void clear_bs_map(bs_map_t *map)
     map->bs_npages = 0;
     map->bs_ref = 0;
     map->bs_vpno = 0;
+    DBG("BSM %d/%d\n",++fre_bsm_num, NBS);
 }
 
 /*-------------------------------------------------------------------------
@@ -143,14 +153,7 @@ SYSCALL bsm_unmap(int pid, int vpno)
   pptr->bs_map[bsid].bs_npages = vpno - pptr->bs_map[bsid].bs_vpno;;
   if(pptr->bs_map[bsid].bs_npages < 1){
     pptr->bs_map[bsid].bs_status = BSM_UNMAPPED;
-    if(bsm_tab[bsid].bs_status == BSM_MAPPED_PR){
-      free_bsm(bsid);
-    }
-    else{
-      bsm_tab[bsid].bs_ref--;
-      if(bsm_tab[bsid].bs_ref == 0)
-        free_bsm(bsid);
-    }
+    free_bsm(bsid);
   }
   return OK;
 }
