@@ -38,14 +38,16 @@ SYSCALL xmmap(int virtpage, bsd_t source, int npages)
 SYSCALL xmunmap(int virtpage )
 {
   STATWORD ps;
+  int bsid, page;
   /* sanity check ! */
   if ( (virtpage < 4096) ){ 
     kprintf("xmummap call error: virtpage (%d) invalid! \n", virtpage);
     return SYSERR;
   }
-  
+  if(OK == bsm_lookup(currpid, virtpage, &bsid, &page)){
+    write_back_frames(currpid, bsid);
+  }
   ERROR_CHECK2( bsm_unmap(currpid, virtpage), ps);
-
   return OK;
 }
 

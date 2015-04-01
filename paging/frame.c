@@ -227,4 +227,17 @@ unsigned int findLRU()
   return ((unsigned int)(id-head))/sizeof(fr_map_t);
 }
 
+void wire_back_frames(int pid, int bsid)
+{
+  int i;
+  for(i=0; i<NFRAMES; i++)
+  {
+    if((frm_tab[i].fr_status == FRM_MAPPED)
+      &&(frm_tab[i].fr_pid == pid)
+      &&(frm_tab[i].fr_bsid == bsid))
+    {
+      free_frm(i);      
+    }
+  }
+}
 
