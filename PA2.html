@@ -1,0 +1,825 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+
+<title>PA2</title>
+</head>
+
+<body>
+<div align="center">
+<div style="font-family:Trebuchet MS;width: 750px;" align="left">
+<h2 align="center">CSC501 Spring 2015</h2>
+<h2 align="center">PA2: Demand Paging</h2>
+<h2 align="center">Due: March 22 2015, 10:00 PM</h2>
+
+<h2>1 Introduction</h2>
+<p>Demand paging is a method of mapping a large address space into a
+relatively small amount of physical memory. This is accomplished by
+using a "backing store" (usually disk) to hold pages of memory not
+currently needed. Paging is what allows us to use more address space
+than that is physically available, and to run programs in non-contiguous
+sections of memory.</p>
+<p>From this point on only the details of this project are
+discussed. It is assumed that you have read the Intel documents and
+are comfortable with paging concepts and the Intel specific details.</p>
+
+<h2>2 Goals</h2>
+<p>The ultimate goal of this project is to implement the system calls
+listed below and the underlying facilities to support them.</p>
+
+<h2>3 System Calls to Implement</h2>
+
+<b>SYSCALL xmmap (int virtpage, bsd_t source, int npages)</b>
+<p>Much like its Unix counterpart (see man mmap) it will map a
+source "file" ("backing store" here) of size npages pages to the
+virtual page virtpage. A process may call this multiple times to map
+data structures, code, etc.</p>
+
+<b>SYSCALL xmunmap (int virtpage)</b>
+<p>This call, like munmap, should remove a virtual memory mapping.
+See man munmap for the details of the Unix call.</p>
+
+<a name="vcreate"><b>SYSCALL</b></a><b> vcreate (int *procaddr, int
+ssize, int hsize, int priority, char *name, int nargs, long args)</b>
+<p> This call will create a new Xinu process. The difference from create()
+is that the process's heap will be private and exist in its virtual
+memory. The size of the heap (in number of pages) is
+specified by the user.</p>
+<p>create() should be left (mostly) unmodified. Processes created
+with create should not have a private heap but should still be able to
+use xmmap().</p>
+		
+<b>WORD *vgetmem (int nbytes)</b>
+<p>Much like getmem(), vgetmem() will allocate the desired amount
+of memory if possible. The difference is that vgetmem() will get the
+memory from a process' private heap located in virtual memory. A call
+to getmem() will continue to allocate memory from the regular Xinu
+kernel heap.</p>
+
+<b>SYSCALL srpolicy (int policy)</b>
+<p>This function will be used to set the page replacement policy to
+FIFO or Least Recently Used (LRU). You can declare constant FIFO as
+3 and LRU as 4 for this purpose.</p>
+
+<b>SYSCALL vfreemem (block_ptr, int	size_in_bytes)</b>
+<p>You will implement a corresponding vfreemem()
+call for the vgetmem(bytes) call. It will take two parameters and
+will return OK or SYSERR. The two parameters are similar to those of
+the freemem() call in the original Xinu. The type of the first
+argument <i>block_ptr </i>will depend on your own implementation.</p>
+
+<h2>4 Overall Organization</h2>
+<p>The following sections discuss at a high level the organization of the
+system, the various pieces we need to implement demand paging in Xinu
+and how they relate to each other. This handout describes ideas for
+implementation in Xinu. You are welcome to use a different
+implementation strategy if you think it is easier or better as long as
+it has the same functionality and challenges.</p>
+
+<h3>4.1 Memory and Backing Store</h3>
+
+<h4>4.1.1 Backing Stores</h4>
+<p>Virtual memory commonly uses disk space to extend the memory of the
+machine. However, the version of Xinu we use has no file
+system support. Also, we cannot use the network to communicate with a
+page server which will manage the backing stores. Instead, we will
+emulate the backing stores (how they are emulated will be detailed in
+4.1.3). To access the backing store you are given the following (These
+calls are in the directory <i>paging</i>):</p>
+
+<ol>
+<li><p><b>bsd_t</b> The backing store descriptor type is used to
+refer to a backing store. The type declaration for it is in
+paging.h. This type is merely unsigned int.</p>
+
+<p>There are 16 backing stores. You will use the IDs zero through
+fifteen to identify them.</p>
+
+</li>
+<li><b>int get_bs (bsd_t store, unsigned int npages)</b> This
+			call requests a new backing store with id store
+			of size npages (in pages, not bytes). If the 
+			new backing store cannot be created, or a backing store with this ID already
+			exists, the size of the new or existing backing store is returned.
+			This size is in pages. If a size of 0 is requested, or
+			an error is encountered, SYSERR is returned.</li>
+
+		<p>Also for practical reasons, the npages will be no more than
+			128.
+		</p><li><b>int release_bs (bsd_t store)</b> This call
+			releases the backing store with ID store.</li>
+		<p>
+		</p><li><b>SYSCALL read_bs (char *dst, bsd_t store, int page)</b>
+			This copies <i>page</i>th page from the backing store referenced by
+			store to dst. It returns OK on success, SYSERR otherwise. The first
+			page of a backing store is page zero.</li>
+		<p>
+		</p><li><b>SYSCALL write_bs (char *src, bsd_t store, int page)</b>
+			This copies a page pointed to by src to the <i>page</i>th page of the
+			backing store referenced by store. It returns OK on success, SYSERR
+			otherwise.</li>
+	</ol>
+
+	<h4>4.1.2 Memory Layout</h4>
+	The basic Xinu memory layout will be as follows:
+	<center>
+		<p>
+			--------------------------------- <br>Virtual memory
+		</p><p>(pages 4096 and beyond)
+		</p><p>
+			--------------------------------- <br>3072 frames
+		</p><p>
+			(pages 1024 - 4095) <br>&nbsp;
+		</p><p>---------------------------------
+		</p><p>Kernel Memory (pages 406 - 1023)
+		</p><p>
+			--------------------------------- <br>Kernel Memory, HOLE (pages 160 -
+			405)
+		</p><p>
+			--------------------------------- <br>Kernel Memory (pages 25 -
+			159) <br>&nbsp;
+		</p><p>
+			--------------------------------- <br>Xinu text, data, bss
+			(pages 0 - 24) <br>----------------------------------
+	</p></center>
+
+	<p>Our Xinu will compile
+		to about 100k, or 25 pages. The PC has an area of memory from page 160
+		through the end of page 405 that cannot be used (this is referred to
+		as the "HOLE" in initialize.c). We will place the free frames into
+		pages 1024 through 4095, giving 3072 frames.
+	</p><p>The frames will be used to store resident pages, page
+		directories, and page tables. The remaining free memory below page
+		4096 is used for Xinu's kernel heap (organized as a freelist).
+		getmem() and getstk() will obtain memory from this area (from the
+		bottom and top respectively).
+	</p><p>All memory below page 4096 will be "global." That is, it is
+		usable and visible by all processes and accessible by simply using its
+		actual physical addresses. As a result, the first four inner page tables for
+		every process will be the same, and thus should be shared.
+	</p><p>Memory at page 4096 and above constitute a process' virtual
+		memory. This address space is private and visible only to the process
+		which owns it. Note that the process' private heap and (optionally)
+		stack are located somewhere in this area.
+	</p><h4>4.1.3 Backing Store Emulation</h4>
+	Since our version of Xinu does not have file system and network
+	support, we need to emulate the backing store with physical memory. In
+	particular, consider the following Xinu memory layout:
+	<center>
+		<p>
+			--------------------------------- <br>Virtual Memory
+		</p><p>(pages 4096 and beyond)
+		</p><p>
+			--------------------------------- <br>16 Backing stores
+		</p><p>(pages 2048 - 4095)
+		</p><p>
+			--------------------------------- <br>1024 frames
+		</p><p>(pages 1024 - 2047)
+		</p><p>---------------------------------
+		</p><p>Kernel Memory (pages 406 - 1023)
+		</p><p>
+			--------------------------------- <br>Kernel Memory, HOLE (pages 160 -
+			405)
+		</p><p>
+			--------------------------------- <br>Kernel Memory (pages 25 -
+			159) <br>&nbsp;
+		</p><p>
+			--------------------------------- <br>Xinu text, data, bss
+			(pages 0 - 24) <br>----------------------------------
+	</p></center>
+
+	Each backend machine has 16 MB (4096 pages) of real memory. We
+	reserve the top 8MB real memory as backing stores. We have 16 backing stores and each backing
+	store will only map maximum 128 pages (each page is 4K size). As a
+	result, we have the following map between the backing store and the
+	corresponding physical memory range:
+
+	<center>
+		<p>backing store 0: 0x00800000 - 0x0087ffff
+		</p><p>backing store 1: 0x00880000 - 0x008fffff
+		</p><p>backing store 2: 0x00900000 - 0x0097ffff
+		</p><p>backing store 3: 0x00980000 - 0x009fffff
+		</p><p>backing store 4: 0x00a00000 - 0x00a7ffff
+		</p><p>backing store 5: 0x00a80000 - 0x00afffff
+		</p><p>backing store 6: 0x00b00000 - 0x00b7ffff
+		</p><p>backing store 7: 0x00b80000 - 0x00bfffff
+		</p><p>backing store 8: 0x00c00000 - 0x00c7ffff
+		</p><p>backing store 9: 0x00c80000 - 0x00cfffff
+		</p><p>backing store 10: 0x00d00000 - 0x00d7ffff
+		</p><p>backing store 11: 0x00d80000 - 0x00dfffff
+		</p><p>backing store 12: 0x00e00000 - 0x00e7ffff
+		</p><p>backing store 13: 0x00e80000 - 0x00efffff
+		</p><p>backing store 14: 0x00f00000 - 0x00f7ffff
+		</p><p>backing store 15: 0x00f80000 - 0x00ffffff
+	</p></center>
+
+	In the implementation, you need to "steal" physical memory frames 2048
+	- 4095 (take a close look at sys/i386.c, and pay attention to the
+	variables
+	<i>npages</i> and
+	<i>maxaddr</i>). As a result, this portion of memory will not be used
+	for other purposes. You can assume that our grading program will not
+	modify this part of memory.
+
+	<h4>4.1.4 Page Tables and Page Directories</h4>
+	Page tables and page directories (i.e. outer page
+	tables) can be placed in any free frame. For this project you will not
+	be paging either the page tables or page directories. Because page
+	tables are always resident it is not practical to allocate all
+	potential page tables for a process when it is created (you will,
+	however, allocate a page directory). To map all 4 GB of memory would
+	require 4 MB of page tables! To conserve memory, page tables must be
+	created on-demand. That is, the first time a page is legally touched
+	(i.e. it has been mapped by the process) for which no page table is
+	present a page table should be allocated. Conversely, when a page table
+	is no longer needed it should be removed to conserve space.
+	
+	<h3>4.2 Supportting Data Structures</h3>
+
+	<h4>4.2.1 Finding the backing store for a Virtual Address</h4>
+	You may realize that there is a problem: if a process can map multiple
+	address ranges to different backing stores, how does one figure out
+	which backing store a page needs to be read from (or written to) when
+	it is being brought into (removed from) a frame?
+	<p>To accomplish this you need to keep track of which backing store
+		the process was allocated when it was created using vcreate. Finding
+		the offset (i.e the particular page within the store to write/read
+		from) can be calculated using the virtual page number. You may need to
+		declare a new kernel data structure which maps virtual address spaces
+		to backing store descriptors. We will call this the backing store map.
+		It should be a tuple like:
+	</p><center>
+		<p>
+			<b>{ pid, vpage, npages, store }</b>
+	</p></center>
+
+	<p>You should write a function that performs the lookup:
+	</p><center>
+		<p>
+			<b>f (pid , vaddr)= &gt; {store, pageoffset within store}</b>
+	</p></center>
+
+	<p>The function xmmap() will add a mapping to this table. xmunmap()
+		will remove a mapping from this table.
+	</p><h4>4.2.2 Inverted Page Table</h4>
+	When writing out a dirty page you may have noticed the only way to
+	figure out which virtual page and process (and thus which backing
+	store) a dirty frame belongs to would be to traverse the page tables of
+	every process looking for a frame location that corresponds to the
+	frame we wish to write out. This is highly inefficient. To prevent
+	this, we can use another kernel data structure, an inverted page table. The
+	inverted page table contains tuples like:
+	<center>
+		<p>
+			<b>{ framenumber, pid, virtual pagenumber }</b>
+	</p></center>
+
+	<p>Of course, if we use an array of size NFRAMES the frame number
+		is implicit and just the index into the array. With this structure we
+		can easily find the pid and virtual page number of the page held
+		within any frame i. From that we can easily find the backing store
+		(using the backing store map) and compute which page within the
+		backing store corresponds with the page in frame i.
+	</p><p>You may also want to use this table to hold other information
+		for page replacement (i.e., any data
+		needed to estimate page replacement policy).
+	</p><h3>4.3 Process Considerations</h3>
+	With each process having its own page directory page tables there are
+	some new considerations in dealing with processes.
+	<h4>4.3.1 Process Creation</h4>
+	When a process is created we must now also create page directory and
+	record the address. Also remember that the first 16 megabytes of each
+	process will be mapped to the 16 megabytes of physical memory, so we
+	must initialize the process' page directory accordingly. This is
+	important as our backing stores also depend on this correct mapping.
+
+	<p>
+		A mapping must be created for the new process' private heap and stack,
+		if created with <b>vcreate()</b>. Because you are limited to 16
+		backing stores you may want to use just one mapping for both the heap
+		and the stack (as with the kernel heap), <b>vgetmem()</b> taking from
+		one end and the stack growing from the other. (Keeping a private stack
+		and paging it is optional, but a private heap must be maintained).
+	</p><h4>4.3.2 Process Destruction</h4>
+	When a process dies the following should happen.
+	<ol>
+		<li>All frames which currently hold any of its pages should be
+			written to the backing store and be freed.</li>
+
+		<li>All of it's mappings should be removed from the backing store
+			map.</li>
+
+		<li>The backing stores for its heap (and stack if private stack is
+			implemented) should be released (remember backing
+			stores allocated by a process should persist unless the process
+			explicitly releases them).</li>
+
+		<li>The frame used for the process' page directory should be
+			released.</li>
+	</ol>
+
+	<h4>4.3.3 Context Switch</h4>
+	It should also be clear that now as we switch between processes we must
+	also switch between memory spaces. This is accomplished by adjusting
+	the PDBR register with every context switch. We must be careful,
+	however, as this register must always point to a valid page directory
+	which is in RAM at a page boundary.
+	<p>Think carefully about where you place this switch if you put it
+		in resched(): before or after the actual context switch.
+	</p><h4>4.3.4 System Initialization</h4>
+	The NULL process is somewhat of a special case, as it builds itself in
+	the function sysinit(). The NULL process should not have a private
+	heap (like any process created with create()).
+	<p>The following should occur at system initialization:
+	</p><ol>
+		<li>Set the DS and SS segments' limits to their highest values.
+			This will allow processes to use memory up to the 4 GB limit without
+			generating general protection faults. Make sure the initial stack
+			pointer (initsp) is set to a real physical address (the highest
+			physical address) as it is in normal Xinu. See i386.c. Don't
+			forget to "steal" physical memory frames 2048 - 4096 for backing
+			store purposes.</li>
+
+		<li>Initialize all necessary data structures.</li>
+
+		<li>Create the page tables which will map pages 0 through 4095 to
+			the physical 16 MB. These will be called the global page tables.</li>
+
+		<li>Allocate and initialize a page directory for the NULL
+			process.</li>
+
+		<li>Set the PDBR register to the page directory for the NULL
+			process.</li>
+
+		<li>Install the page fault interrupt service routine.</li>
+
+		<li>Enable paging.</li>
+	</ol>
+
+	<h3>4.4 The Interrupt Service Routine (ISR)</h3>
+	A page fault triggers an interrupt 14. When an interrupt
+	occurs the machine pushes CS:IP and then an error code
+	<center>
+		<p>
+			---------- <br>error code <br>---------- <br>IP <br>----------
+			<br>CS <br>---------- <br>... <br>...
+	</p></center>
+
+	<p>It then jumps to a predetermined point, the ISR. To specify the
+		ISR we use the routine:
+	</p><p>
+		<b>set_evec(int interrupt, (void (*isr)(void)))</b>   (see evec.c)
+	</p><p>
+	</p><h3>4.5 Faults and Replacement Policies</h3>
+
+	<h4>4.5.1 Page Faults</h4>
+	A page fault indicates one of two things: the virtual page on which the
+	faulted address exists is not present or the page table which contains
+	the entry for the page on which the faulted address exists is not
+	present. To deal with a page fault you must do the following:
+	<ol>
+		<li>Get the faulted address a.</li>
+
+		<li>Let vp be the virtual page number of the page containing of
+			the faulted address.</li>
+
+		<li>Let pd point to the current page directory.</li>
+
+		<li>Check that a is a legal address (i.e., it has been
+			mapped). If it is not, print an error message and kill the process.</li>
+
+		<li>Let p be the upper ten bits of a. [What does p represent?]</li>
+
+		<li>Let q be the bits [21:12] of a. [What does q represent?]</li>
+
+		<li>Let pt point to the pth page table. If the pth page table
+			does not exist obtain a frame for it and initialize it.</li>
+
+		<li>To page in the faulted page do the following:</li>
+
+		<ol>
+			<li>Using the backing store map, find the store s and page
+				offset o which correspond to vp.</li>
+
+			<li>In the inverted page table increment the reference count of
+				the frame which holds pt. This indicates that one more of pt's
+				entries is marked "present."</li>
+
+			<li>Obtain a free frame, f.</li>
+
+			<li>Copy the page o of store s to f.</li>
+
+			<li>Update pt to mark the appropriate entry as present and set
+				any other fields. Also set the address portion within the entry to
+				point to frame f.</li>
+		</ol>
+	</ol>
+
+	<h4>4.5.2 Obtaining a Free Frame</h4>
+	When a free frame is needed it may be necessary to remove a resident
+	page from frame. How you pick the page to remove depends on your page
+	replacement policy,
+	<p>Your function to find a free page should do the following:
+	</p><ol>
+		<li>Search inverted page table for an empty frame. If one exists
+			stop.</li>
+
+		<li>Else, pick a page to replace.</li>
+
+		<li>Using the inverted page table, get vp, the virtual page
+			number of the page to be replaced.</li>
+
+		<li>Let a be vp*4096 (the first virtual address on page vp).</li>
+
+		<li>Let p be the high 10 bits of a. Let q be bits [21:12] of a.</li>
+
+		<li>Let pid be the pid of the process owning vp.</li>
+
+		<li>Let pd point to the page directory of process pid.</li>
+
+		<li>Let pt point to the pid's pth page table.</li>
+
+		<li>Mark the appropriate entry of pt as not present.</li>
+
+		<li>If the page being removed belongs to the current process,
+			invalidate the TLB entry for the page vp using the invlpg instruction
+			(see Intel Volume III/II).</li>
+
+		<li>In the inverted page table decrement the reference count of
+			the frame occupied by pt. If the reference count has reached zero,
+			you should mark the appropriate entry in pd as being not present.
+			This conserves frames by keeping only page tables which are
+			necessary.</li>
+
+		<li>If the dirty bit for page vp was set in its page table you
+			must do the following:</li>
+
+		<ol>
+			<li>Using the backing store map to find the store and page offset
+				within store given pid and a. If the lookup fails, something is
+				wrong. Print an error message and kill the process pid.</li>
+
+			<li>Write the page back to the backing store.</li>
+		</ol>
+	</ol>
+
+	<h4>4.5.3 Page Replacement Policies</h4>
+
+	<p>You must implement two page replacement algorithms: FIFO and Least 
+Recently Used. For this you will want to make use of page's accessed 
+bits. There are also three bits in the page table entries which you may 
+use for any purpose. You are free to add whatever structures you'd like 
+in your inverted page table, or extra processes if needed.</p>
+
+	<p>FIFO: Basically for FIFO you can maintain a FIFO Queue. When a new 
+page comes, put it at the tail of the queue, and while swapping a page 
+out, choose the page at the head of the queue to replace. </p>
+
+	<p>LRU: Because there is no way of
+	knowing when a page was accessed, we cannot keep a counter 
+	access time to track which  page was least recently used. 
+	  An estimate of LRU policy can be implemented in the following way: 
+	  When a frame is allocated for a page, the OS increases a timeCount by
+	  1. It then goes through the pt_acc bit of all pages. If the
+	  bit of a page is 1, it records timeCount for that page as
+	  its estimated last access time, and then reset that bit. The
+	  timeCount of the pages can then reflect roughly how recent
+	  the page has been accessed. If there are multiple pages
+	  having the same timeCount value that is the least among all
+	  pages, the page having the largest Virtual Page Number among
+	them is
+	  selected as the victim.</p>
+
+	<h2>5 Required API Calls</h2>
+	You must implement the system calls listed in the beginning of this
+	handout exactly as specified. Be sure to check the parameters for
+	validity. For example, no process should be allowed to remap the lowest
+	16 MB of the system (global memory).
+	<p>None of Xinu's other system calls interfaces should be modified.
+
+	
+	</p><h2>6&nbsp;Details on the Intel Architecture and Xinu</h2>
+	<p>The following might be useful for you to know:
+	</p><ol>
+		<li>We are using the Intel Pentium chip, not the Pentium Pro or
+			Pentium II. Some details of those chips do not apply.</li>
+
+		<li>Xinu uses the flat memory model, i.e. physical address =
+			linear addresses.</li>
+
+		<li>The segments are set in i386.c in the function setsegs().</li>
+
+		<li>Pages are 4k (4096 bytes) in size. Do not use 2M or 4M page
+			size</li>
+
+		<li>The backend machines have 16 MB (4096 pages) of real memory.</li>
+
+		<li>Some example code is given in the project directory for
+			getting and setting the control registers. A useful function,
+			dump32(unsigned long), for dumping a binary number with labeled bits
+			is also given.</li>
+	</ol>
+
+	<h2>7 Given Code</h2>
+	In this lab, we will use another version of xinu that can be downloaded
+	in the following link:
+	<a href="http://people.engr.ncsu.edu/gjin2/Classes/501/Spring2015/assignments/PA2/csc501-lab2.tar.gz">(csc501-lab2.tar.gz)</a>
+	This version of Xinu contains the skeleton code for the backing store
+	calls. It also has .h files needed for this project. Test file
+	<a href="http://people.engr.ncsu.edu/gjin2/Classes/501/Spring2015/assignments/PA2/testmain.c">
+		testmain.c</a>.
+	<h2>8 Debugging</h2>
+	Please try to debug by yourself first. Also realize that you know your
+	program best.
+	<p>
+		Furthermore, if it helps you, you can uncomment the #define's in
+		evec.c to get a stack trace and register dump. Using this and nm on
+		the file xinu.elf can help you locate where your program crashed. Or
+		you may recompile everything using the compiler's -g flag, disassemble
+		xinu.elf using <i>objdump -d xinu.elf &gt; xinu.dis</i>, load xinu.dis
+		into your text editor and search for the return address in the stack.
+		In the disassembly the addresses are the numbers on the left (e.g.
+		ab3e:). This will show you the function name (may be some lines above)
+		of the function the crash occurred in and (if you compiled that
+		particular file with -g) the C line number in the []'s.
+	</p><p>The most difficult problem to diagnose is when the machine
+		simply reboots itself. This is usually the result of having a bad
+		stack pointer. In such a case the machine cannot give a trap.
+	</p><h2>9 What to Turn In</h2>
+
+	The goal of the this assignment is to provide support for :
+	<p></p>
+	<ul>
+		<li>Memory mapping: mapping of the first 16 Mb of physical
+			memory, and the xmmap() and xmunmap() system calls</li>
+		<ul>
+			<li>Different running processes created with <i>vcreate</i> can
+				have its own private heap
+			</li>
+			<li>vgetmem, vfreemem: implemented and fully functional</li>
+		</ul>
+		<ul>
+			<li>All running processes can simply share the same page table</li>
+		</ul>
+		<li>Demand paging: data is retrieved from the backing stores only
+			when needed</li>
+		<li>Backing store management:
+			<ul>
+				<li>get_bs, release_bs, read_bs, write_bs: implemented and
+					fully functional</li>
+			</ul>
+		</li>
+		<li>Page replacement: FIFO, LRU</li>
+	</ul>
+
+	
+
+	Remember that, per the specification, page tables are created and
+	destructed on demand. In other words, you system must not pre-allocate
+	page tables. Also, page tables that do not contain at least on valid
+	entry pointing to a data page should be destroyed (the frame should be
+	freed) as soon as their last entry is invalidated. Page tables and page
+	directories are not paged out.
+
+
+	<p>
+		<i>Electronic turn-in instructions</i> (<b style=""><span style="color: red;">Make sure that your code compiles and that
+				you have turned off all your debugging output!):</span></b>
+	</p>
+
+	<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; i) go to the csc501-lab2/compile
+		directory and do "make clean".</p>
+
+	<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ii) go to the
+		directory of which your csc501-lab2 directory is a subdirectory (NOTE:
+		please do not rename csc501-lab2, or any of its subdirectories.)</p>
+
+	<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		e.g., if /home/csc501/csc501-lab2 is your directory structure, goto
+		/homes/csc501</p>
+
+	<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; iii) create a
+		subdirectory TMP (under the directory csc501-lab2) and copy all the
+		files you have modified/written, both .c files and .h files into the
+		directory.</p>
+
+	<p>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; iv) compress the
+		csc501-lab2 directory into a tgz file and use Moodle's <b>Submit
+			Assignments</b> facility. Please only upload one tgz file.
+	</p>
+
+	<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		tar czf csc501-lab2.tgz csc501-lab2</p>
+
+
+	<h2>10 A Last Note</h2>
+	Even with the design given to you this is not necessarily an easy
+	project. Dealing with low level aspects of the machine is always
+	difficult. Please do not procrastinate. It is very easy (especially
+	with Xinu and even more so when working at a low level) to run into
+	problems.
+	<br>&nbsp;
+	<p>
+		<b><font color="#330033"><font size="+2">FAQs:</font></font></b>
+	</p><p>
+		<b>1) In the specification of the vcreate() system call, the
+			parameter <i><a href="#vcreate">hsize</a></i> refers to the heap size
+			as number of pages (not number of bytes).
+		</b> <br>&nbsp;
+	</p><p>
+		<b>2) How do I get the virtual page number from a virtual address?</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp; </b>The most significant 20 bits of a virtual
+		address form the virtual page number.
+	</p><p>
+		<b>3) About the mapping &lt; pid, vpage, npages, store &gt;</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp; </b>This mapping is maintained inside the
+		kernel. Since the "store"&nbsp; can take only 16 values at the most
+		(because there are only 16 backing stores possible for any user), and
+		no store can be mapped to more than one range of virtual memory at any
+		time, the table that contains these mappings will contain only 16
+		entries. This table is placed in kernel data segment in the first 25
+		pages of the physical memory. You need not take any extra care about
+		placing this table. Just create an array of 16 entries of the type of
+		the mapping and that's all. It is pretty similar to semaph[] and
+		proctab[].
+	</p><p>
+		<b>4) srpolicy()</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp; </b>This system call will not be called at
+		arbitrary places inside your code to force changing from one
+		replacement policy to another. You can assume that the default policy
+		is fifo, and srpolicy(NRU), if called, will be the
+		first statement in the program. So, need not worry about switching
+		from one replacement policy to another midway through the execution.
+	</p><p>
+		<b>5) Paging.h contains two structures pd_t and pt_t which
+			contains a lot of bit fields. Initially which fields should be set in
+			a page directory and a page table?</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp; </b>For page directories, set the following bits
+		and make the other bits zero: pd_write always and pd_pres whenever
+		the corresponding page tables are present in the main memory.
+	</p><p>&nbsp;&nbsp;&nbsp; For the four global page tables, set the
+		following bits: pt_pres and pt_write. You can make others zero.
+	</p><p>
+		<b>6) Where do we place the page tables and page directories?</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp; </b>The page tables and page directories are to
+		be placed in the following memory range: If your memory is divided
+		into 4096 pages, then they should be placed in the range 1024-2047
+		(was 1024-1535, simplifying to 1024-2047 so that there will be no need to
+		do anything special for pages for page directory/table).
+		They should be placed on page boundaries only, i.e., the starting
+		address of any page table or page directory should be divisible by the
+		size of the pages NBPG.
+	</p><p>
+		<b><font size="+1">*** 7) What is the use of xmmap()?</font></b>
+	</p><p>
+		When does a user process call xmmap()? What is it used for?
+	</p><p>&nbsp;&nbsp;&nbsp; Even though, xmmap() is given in the first
+		page of your handout, it is not the most important system call that
+		you should implement. Also, it is not main part of the project. Also,
+		it is not the only way by which you can access virtual memory and test
+		your implementation.
+	</p><p>
+		&nbsp;&nbsp;&nbsp; Then, how else can a process try to use virtual
+		memory? Here is one<b> example</b>
+	</p><p>
+		&nbsp;&nbsp;&nbsp; main() <br>&nbsp;&nbsp;&nbsp; { <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		vcreate(process A, , , hsize = 100,
+		,,,);&nbsp;&nbsp; /* process A is
+		created with a virtual heap of 100 pages */
+	<br>&nbsp;&nbsp;&nbsp; }
+	</p><p>/* This virtual heap will be present in a backing store that is
+		exclusive for this process alone. (No backing store will be shared
+		across processes. Neither will the same backing store be mapped to
+		multiple memory ranges.) */
+	</p><p>/* This virtual heap present in a backing store will be mapped
+		from in the address ranges 4096th page to 4196th page of this process.
+		So, the backing store mapping table you maintain will contain an entry
+		&lt; process A's pid, 4096, 100, backing store number &gt; */
+	</p><p>
+		&nbsp;&nbsp;&nbsp; process A() <br>&nbsp;&nbsp;&nbsp; { <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		int *x; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		int temp; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		x = vgetmem(1000);&nbsp; /* allocates some memory in the virtual heap
+		which is in virtual memory */<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		/* the following&nbsp; statement will cause a page fault. The page
+		fault handling routing will read in the required page from
+		backing store into the main memory, set the proper page tables and the
+		page directory entries and reexecute the statement. */ <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		*x = 100; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		x++; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		*x = 200; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		temp = *x;&nbsp; /* You are reading back from virtual heap to check if
+		the previous write was successful */
+	</p><p>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		vfreemem(--x, 1000); /* frees the allocation in the virtual heap */ <br>}
+
+
+
+
+
+
+
+
+	
+	</p><p>In the previous example, you accessed virtual memory, found that
+		the access creates a page fault and&nbsp; will handle the page
+		fault.&nbsp; This example some fair idea about how to use your virtual
+		memory and how to test your implementation of virtual memory.
+	</p><p>Then, why do we need xmmap() and what does it do? Xmmap() is
+		very similar to mmap() of Unix. It treats the backing stores as
+		"files". One potential usage of xmmap() is as follows:
+	</p><p>
+		Process A: <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		char *x; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		char temp; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		get_bs(4, 100); <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		xmmap(7000, 4, 100);&nbsp;&nbsp;&nbsp; /* This call simply creates an
+		entry in the backing store mapping */ <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		x = 7000*4096; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+		*x =
+		
+'Y';&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+		/* write into virtual memory, will create a fault and system should
+		proceed as in the prev example */ <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+		temp =
+		
+*x;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+		/* read back and check */ <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		xmunmap(...);
+	</p><p>/* This can be thought of as you creating a file, whose name is
+		"4". It is a big empty file of size 100 pages. You store a character
+		'A' as the first character in the file. But, instead of using file I/O
+		operations, since you have mapped the file to a memory location, you
+		modify the file by means of a memory modification !! */
+	</p><p>Let us say there is another process B which executes the
+		following code after a while the prev code was executed (assume that
+		'A' has not executed release_bs(4))
+	</p><p>&nbsp;&nbsp;&nbsp; Process B:
+	</p><p>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		char *x; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		char temp_b; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		xmmap(6000, 4, 100); <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		x = 6000 * 4096; <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		temp_b = *x:&nbsp;&nbsp; /* Surprise: Now, temp_b will get the value
+		'Y' written by the process A to this backing store '4' */
+	</p><p>
+		These examples should make the usage of xmmap() more clear. Think
+		about it. <br>&nbsp;
+	</p><p>
+		<b>8) Page fault handling routine (page fault ISR) - What should
+			be done here?</b>
+	</p><p>&nbsp;&nbsp;&nbsp; Psuedo code for the implementation (which would be easier if you do it in assembly)
+	</p><p>
+	    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1) store error code in a global variable<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2) store flag register<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3) clear all interrupts<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4) save all general registers<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5) page fault handling<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6) restore general registers<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7) restore flag register<br>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8) iret<br>
+
+	</p><p>&nbsp;&nbsp;&nbsp; If you have not written in assembly language
+		before, look at some code written in assembly in xinu itself. Or else,
+		disassemble some simple C code and check the assembly code. Note that not
+		everything has to be implemented in assembly as it would be very difficult.
+		Thus, you could include a call to a C function which handles 5).
+	</p><p>
+		<b>9) Are read_bs and write_bs blocking calls and can they be used
+			inside our interrupt handling routine?</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </b>They are, and can be
+		used inside the page fault handling routine. 
+	</p><p>
+		<b>10) A request/directive</b>
+	</p><p>
+		<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </b>While using get_bs(store, pages),
+		please don't make the <i>pages</i> parameter take
+		values greater than 100. Limit to get_bs (store, 100) at the maximum.
+	</p><p>
+		<b>11) How do I test replacement policies?</b>
+	</p><p>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; There is a constant called
+		NFRAMES in paging.h which has a value of 1024. Make sure that your
+		entire code depends on this constant as a measure of the available
+		free frames. If we change the constant's value to
+		say 400, then the number of free frames initially available is only
+		400, i.e., your main memory looks as if it has only 1024+NFRAMES =
+		1024+400 = 1424 frames of memory. So, you have ample scope to test
+		your replacement policy by changing the NFRAMES constant. <br>&nbsp;
+		<br>&nbsp;
+
+
+
+</p></div></div></body></html>
